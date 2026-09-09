@@ -2,7 +2,16 @@ from decimal import Decimal
 
 import pymysql
 
-from mcp_bd_readonly.security import enforce_read_only
+from mcp_bd_readonly.security import enforce_read_only, LEADING_COMMENTS
+
+
+def _first_stmt(sql: str) -> str:
+    return LEADING_COMMENTS.sub("", sql, count=1).strip()
+
+
+def _single_select(sql: str) -> bool:
+    stmt = _first_stmt(sql)
+    return sql.count(";") == 0 and stmt.lower().startswith(("select", "with"))
 
 
 class QueryExecutor:
@@ -24,14 +33,18 @@ class QueryExecutor:
 
     def run(self, sql, params=None, limit=100):
         enforce_read_only(sql)
+        stmt = _first_stmt(sql)
         clamped = sql
-        if limit and "limit" not in sql.lower():
-            clamped = f"{sql.rstrip().rstrip(';')} LIMIT {int(limit)}"
+        if limit and "limit" not in stmt.lower():
+            if _single_select(sql):
+                clamped = f"{sql.rstrip().rstrip(';')} LIMIT {int(limit)}"
         with self._conn() as c:
             with c.cursor() as cur:
                 cur.execute(clamped, params or ())
                 cols = [d[0] for d in cur.description] if cur.description else []
                 rows = [_convert(r) for r in cur.fetchall()]
+        if limit and rows and not clamped.lower().endswith(f"limit {int(limit)}"):
+            rows = rows[: int(limit)]
         return cols, rows
 
     def databases(self):

@@ -182,6 +182,48 @@ def test_run_skips_clamp_when_limit_none(monkeypatch):
     assert cur.executed == "SELECT a FROM t"
 
 
+def test_run_no_sql_limit_on_show(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["t"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SHOW TABLES", limit=5)
+    assert cur.executed == "SHOW TABLES"
+
+
+def test_run_no_sql_limit_on_describe(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["Field"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("DESCRIBE t", limit=5)
+    assert cur.executed == "DESCRIBE t"
+    ex.run("DESC t", limit=5)
+    assert cur.executed == "DESC t"
+
+
+def test_run_no_sql_limit_on_explain(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["id"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("EXPLAIN SELECT * FROM t", limit=5)
+    assert cur.executed == "EXPLAIN SELECT * FROM t"
+
+
+def test_run_py_slices_when_no_sql_limit(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([{"x": 1}, {"x": 2}, {"x": 3}], ["x"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    cols, rows = ex.run("SHOW TABLES", limit=2)
+    assert len(rows) == 2
+
+
+def test_run_no_clamp_on_multistatement(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT 1; SELECT 2", limit=5)
+    assert cur.executed == "SELECT 1; SELECT 2"
+
+
 def test_describe_escapes_backticks(monkeypatch):
     ex = make_executor()
     seen = []

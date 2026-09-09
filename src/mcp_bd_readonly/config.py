@@ -11,6 +11,7 @@ class Config:
     user: str
     password: str
     data_dir: Path
+    tunnel_host: str
 
 
 def _load_env_file(path: Path) -> dict:
@@ -39,4 +40,5 @@ def load_config(env_file: Path | None = None) -> Config:
         user=get("MYSQL_USER"),
         password=get("MYSQL_PASSWORD"),
         data_dir=Path(get("DATA_DIR", "./data")),
+        tunnel_host=get("TUNNEL_HOST", "db-host"),
     )

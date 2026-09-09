@@ -5,9 +5,14 @@ from mcp_bd_readonly.audit import AuditLogger
 from mcp_bd_readonly.tools_core import build_tools
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
+from mcp_bd_readonly.tunnel import TunnelManager
 
 def main():
     cfg = load_config()
+    tunnel = TunnelManager(cfg)
+    state = tunnel.ensure()
+    if state.startswith("error"):
+        print(f"TUNNEL ERROR: {state}", file=__import__("sys").stderr)
     executor = QueryExecutor(cfg)
     audit = AuditLogger(cfg.data_dir)
     mcp = FastMCP("mcp-bd-readonly")

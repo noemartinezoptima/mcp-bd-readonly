@@ -8,15 +8,20 @@ def _dec(v):
     return Decimal(str(v)) if v is not None else Decimal("0")
 
 
-def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None):
-    sql = ("SELECT codigo, fecha_factura, base_moneda, iva_euros, total_euros, estado_id "
-           "FROM facturas_venta WHERE deleted_at IS NULL "
-           "AND DATE(fecha_factura) BETWEEN %s AND %s")
+def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None, max_n: int = 200):
+    where = "deleted_at IS NULL AND DATE(fecha_factura) BETWEEN %s AND %s"
     params = [fecha_desde, fecha_hasta]
     if cliente:
-        sql += " AND cliente_id = %s"
+        where += " AND cliente_id = %s"
         params.append(cliente)
-    _, rows = ex.run(sql, params, limit=None)
+    sql_total = ("SELECT COALESCE(SUM(total_euros),0) t, COUNT(*) n "
+                 "FROM facturas_venta WHERE " + where)
+    _, tot = ex.run(sql_total, params, limit=1)
+    total = _dec(tot[0]["t"]).quantize(Decimal("0.01"))
+    n_total = tot[0]["n"]
+    sql = ("SELECT codigo, fecha_factura, base_moneda, iva_euros, total_euros, estado_id "
+           "FROM facturas_venta WHERE " + where + " ORDER BY fecha_factura ASC LIMIT %s")
+    _, rows = ex.run(sql, params + [int(max_n)], limit=None)
     out = []
     for r in rows:
         out.append({
@@ -27,8 +32,8 @@ def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None):
             "total": _dec(r["total_euros"]).quantize(Decimal("0.01")),
             "estado_id": r["estado_id"],
         })
-    total = exact_sum(o["total"] for o in out)
-    return {"facturas": out, "total_periodo": total, "total_periodo_es": fmt_money(total)}
+    return {"facturas": out, "total_periodo": total, "total_periodo_es": fmt_money(total),
+            "n_total": n_total, "limit_aplicado": int(max_n)}
 
 
 def resumen_iva(ex, trimestre: int, anio: int):
@@ -58,7 +63,7 @@ def remesas_pendientes(ex, max_n: int = 50) -> dict:
     for r in rows:
         out.append({
             "codigo": r["codigo"],
-            "fecha_vencimiento": str(r["fecha_vencimiento"]),
+            "fecha_vencimiento": str(r["fecha_vencimiento"]) if r["fecha_vencimiento"] is not None else None,
             "total_euros": _dec(r["total_euros"]).quantize(Decimal("0.01")),
             "estado_id": r["estado_id"],
             "regularizado": r["regularizado"],
@@ -69,9 +74,12 @@ def remesas_pendientes(ex, max_n: int = 50) -> dict:
 def cuadre_factura(ex, factura_id: int) -> dict:
     _, header = ex.run("SELECT total_euros FROM facturas_venta WHERE id=%s", [factura_id])
     _, lineas = ex.run("SELECT total_euros FROM facturas_venta_lineas WHERE factura_venta_id=%s", [factura_id])
-    header_total = _dec(header[0]["total_euros"]) if header else Decimal("0")
+    if not header:
+        return {"ok": False, "exists": False, "header_total": Decimal("0"),
+                "lineas_sum": Decimal("0.00"), "diff": Decimal("0.00")}
+    header_total = _dec(header[0]["total_euros"])
     lineas_sum = exact_sum(_dec(r["total_euros"]) for r in lineas)
-    return {"ok": lineas_sum == header_total, "header_total": header_total,
+    return {"ok": lineas_sum == header_total, "exists": True, "header_total": header_total,
             "lineas_sum": lineas_sum, "diff": lineas_sum - header_total}
 
 
@@ -84,10 +92,10 @@ def build_finanzas_tools(executor: QueryExecutor, audit: AuditLogger):
             return fn
         return wrap
 
-    @_tool("facturas_venta", "Facturas de venta en un rango de fechas (opcional por cliente)")
-    def tool_facturas(fecha_desde: str, fecha_hasta: str, cliente: int | None = None):
+    @_tool("facturas_venta", "Facturas en un rango de fechas (max_n filas, default 200) + total_periodo exacto")
+    def tool_facturas(fecha_desde: str, fecha_hasta: str, cliente: int | None = None, max_n: int = 200):
         audit and audit.record("facturas_venta", "mcp", "facturas_venta")
-        return facturas_venta(executor, fecha_desde, fecha_hasta, cliente)
+        return facturas_venta(executor, fecha_desde, fecha_hasta, cliente, max_n)
 
     @_tool("resumen_iva", "Base/IVA/Total de un trimestre (anio + trimestre 1-4)")
     def tool_resumen_iva(trimestre: int, anio: int):

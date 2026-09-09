@@ -55,15 +55,13 @@ def saldos_cliente(ex, cliente_id) -> dict:
 def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
     sql = ("SELECT codigo, fecha_factura, base_moneda, iva_euros, total_euros, estado_id "
            "FROM facturas_venta WHERE deleted_at IS NULL "
-           "AND DATE(fecha_factura) BETWEEN %s AND %s")
-    _, rows = ex.run(sql, [fecha_desde, fecha_hasta], limit=None)
+           "AND DATE(fecha_factura) BETWEEN %s AND %s AND total_euros >= %s")
     umbral_d = _d(umbral)
+    _, rows = ex.run(sql, [fecha_desde, fecha_hasta, umbral_d], limit=None)
     out = []
     resumen = {"CRITICAL": 0, "WARNING": 0, "INFO": 0}
     for r in rows:
         total = _d(r["total_euros"]).quantize(Decimal("0.01"))
-        if total < umbral_d:
-            continue
         sev = clasificar_materialidad(total - umbral_d, umbral_d)
         resumen[sev] += 1
         out.append({
@@ -76,10 +74,10 @@ def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
     return {"excepciones": out, "resumen": resumen}
 
 
-def informe_financiero(ex, fecha_desde, fecha_hasta) -> dict:
-    res = facturas_venta(ex, fecha_desde, fecha_hasta)
+def informe_financiero(ex, fecha_desde, fecha_hasta, max_n: int = 200) -> dict:
+    res = facturas_venta(ex, fecha_desde, fecha_hasta, max_n=max_n)
     md = (f"# Informe financiero {fecha_desde} → {fecha_hasta}\n\n"
-          f"Total periodo: **{res['total_periodo_es']}**\n\n"
+          f"Total periodo: **{res['total_periodo_es']}** (n={res['n_total']})\n\n"
           "| Código | Base | IVA | Total |\n|---|---|---|---|\n" +
           "\n".join(f"| {f['codigo']} | {fmt_money(f['base'])} | {fmt_money(f['iva'])} | {fmt_money(f['total'])} |"
                     for f in res["facturas"]))
@@ -115,9 +113,9 @@ def build_auditoria_tools(executor: QueryExecutor, audit: AuditLogger):
         audit and audit.record("excepciones", "mcp", "excepciones")
         return excepciones(executor, fecha_desde, fecha_hasta, umbral)
 
-    @_tool("informe_financiero", "Informe Markdown + CSV(;) de un periodo")
-    def tool_informe(fecha_desde: str, fecha_hasta: str):
+    @_tool("informe_financiero", "Informe Markdown + CSV(;) de un periodo (max_n filas, default 200)")
+    def tool_informe(fecha_desde: str, fecha_hasta: str, max_n: int = 200):
         audit and audit.record("informe_financiero", "mcp", "informe_financiero")
-        return informe_financiero(executor, fecha_desde, fecha_hasta)
+        return informe_financiero(executor, fecha_desde, fecha_hasta, max_n)
 
     return [tool_conciliar, tool_saldos, tool_excepciones, tool_informe]

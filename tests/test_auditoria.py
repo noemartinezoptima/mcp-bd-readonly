@@ -77,7 +77,7 @@ def test_excepciones_filtra_umbral():
 
     def run(sql, params=None, limit=100):
         ex.calls.append((sql, params, limit))
-        return ["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"], [
+        rows = [
             {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_moneda": Decimal("400.00"),
              "iva_euros": Decimal("84.00"), "total_euros": Decimal("500.00"), "estado_id": 1},
             {"codigo": "F-002", "fecha_factura": "2026-08-05", "base_moneda": Decimal("1000.00"),
@@ -85,11 +85,18 @@ def test_excepciones_filtra_umbral():
             {"codigo": "F-003", "fecha_factura": "2026-08-10", "base_moneda": Decimal("6000.00"),
              "iva_euros": Decimal("1260.00"), "total_euros": Decimal("8000.00"), "estado_id": 3},
         ]
+        cols = ["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"]
+        if "total_euros >= %s" in sql:
+            umbral = params[-1]
+            rows = [r for r in rows if r["total_euros"] >= umbral]
+        return cols, rows
 
     ex.run = run
     res = excepciones(ex, "2026-08-01", "2026-08-31", Decimal("1000"))
-    _sql, _params, limit_kw = ex.calls[0]
+    _sql, params, limit_kw = ex.calls[0]
     assert limit_kw is None
+    assert params == ["2026-08-01", "2026-08-31", Decimal("1000")]
+    assert "total_euros >= %s" in _sql
     assert len(res["excepciones"]) == 2
     assert [e["severidad"] for e in res["excepciones"]] == ["CRITICAL", "CRITICAL"]
     assert res["resumen"] == {"CRITICAL": 2, "WARNING": 0, "INFO": 0}
@@ -103,6 +110,8 @@ def test_informe_financiero_markdown_y_csv():
 
     def run(sql, params=None, limit=100):
         ex.calls.append((sql, params, limit))
+        if "COALESCE(SUM" in sql:
+            return ["t", "n"], [{"t": Decimal("121.00"), "n": 1}]
         return ["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"], [
             {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_moneda": Decimal("100.00"),
              "iva_euros": Decimal("21.00"), "total_euros": Decimal("121.00"), "estado_id": 1},
@@ -111,6 +120,7 @@ def test_informe_financiero_markdown_y_csv():
     ex.run = run
     res = informe_financiero(ex, "2026-08-01", "2026-08-31")
     assert "# Informe financiero" in res["markdown"]
+    assert "n=1)" in res["markdown"]
     assert "| F-001 |" in res["markdown"]
     lines = res["csv"].strip().splitlines()
     assert lines[0] == "codigo;base;iva;total"
