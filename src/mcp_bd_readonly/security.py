@@ -10,8 +10,12 @@ class ReadOnlyViolation(Exception):
     pass
 
 
+def _split_statements(sql: str) -> list[str]:
+    return [s for s in sql.split(";") if s.strip()]
+
+
 def is_read_only(sql: str) -> bool:
-    if FORBIDDEN_FIRST.search(sql):
+    if any(FORBIDDEN_FIRST.search(s) for s in _split_statements(sql)):
         return False
     return True
 
