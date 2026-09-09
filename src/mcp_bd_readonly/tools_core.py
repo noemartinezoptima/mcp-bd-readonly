@@ -1,0 +1,27 @@
+from mcp_bd_readonly.db import QueryExecutor
+from mcp_bd_readonly.audit import AuditLogger
+
+def build_tools(executor: QueryExecutor, audit: AuditLogger):
+
+    def list_databases() -> list[str]:
+        audit and audit.record("list_databases", "mcp", "SHOW DATABASES")
+        cols, rows = executor.run("SHOW DATABASES")
+        return [r.get("Database") or next(iter(r.values())) for r in rows]
+
+    def list_tables(schema: str = "back") -> list[str]:
+        audit and audit.record("list_tables", "mcp", f"SHOW TABLES FROM {schema}")
+        cols, rows = executor.run(f"SHOW TABLES FROM {schema}")
+        key = cols[0]
+        return [r[key] for r in rows]
+
+    def describe_table(table: str) -> list[dict]:
+        audit and audit.record("describe_table", "mcp", f"DESCRIBE {table}")
+        _, rows = executor.run(f"DESCRIBE `{table}`")
+        return rows
+
+    def run_query(query: str, limit: int = 100) -> dict:
+        audit and audit.record("run_query", "mcp", query)
+        from mcp_bd_readonly.dbutils import shape_rows
+        return shape_rows(executor.run(query, limit=limit))
+
+    return [list_databases, list_tables, describe_table, run_query]
