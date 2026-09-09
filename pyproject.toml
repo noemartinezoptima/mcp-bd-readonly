@@ -1,7 +1,7 @@
 [project]
 name = "mcp-bd-readonly"
 version = "0.1.0"
-description = "Read-only MySQL MCP for optimaback back DB (finance + audit)"
+description = "Read-only MySQL MCP server for finance + audit queries"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=1.0,<2",

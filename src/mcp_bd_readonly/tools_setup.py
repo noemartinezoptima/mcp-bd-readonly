@@ -1,9 +1,9 @@
 import os
 import subprocess
 
-HOST = "db-host"
-HOST_NAME = "db-host.example.com"
-USER = "forge"
+HOST = os.environ.get("SSH_HOST", "db-host")
+HOST_NAME = os.environ.get("SSH_HOSTNAME", "db-host.example.com")
+USER = os.environ.get("SSH_USER", "forge")
 
 
 def _key_path() -> str:
@@ -99,5 +99,5 @@ def setup_ssh(email: str | None = None) -> dict:
         "hostname": HOST_NAME,
         "clave_publica": public_key,
         "en_portapapeles": copied,
-        "pendiente": "Añadir la clave pública a Forge (forge.laravel.com > db-host > SSH Keys > Add Key), luego probar: ssh db-host 'echo OK'",
+        "pendiente": f"Añadir la clave pública al servidor ({HOST}): configúralo en el panel del proveedor (Forge u otro), luego prueba: ssh {HOST} 'echo OK'",
     }

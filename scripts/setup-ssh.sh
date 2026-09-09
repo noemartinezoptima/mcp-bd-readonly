@@ -1,10 +1,12 @@
 #!/bin/bash
-# setup-ssh.sh — prepara SSH para mcp-bd-readonly (Forge optimaback)
+# setup-ssh.sh — prepara SSH para mcp-bd-readonly
 # Uso: bash scripts/setup-ssh.sh   (solo pide email si falta la clave)
 set -euo pipefail
 
 KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
-HOST="db-host"
+HOST="${SSH_HOST:-db-host}"
+HOSTNAME="${SSH_HOSTNAME:-db-host.example.com}"
+SSH_USER="${SSH_USER:-forge}"
 SSHCFG="$HOME/.ssh/config"
 
 EM="abortando: usa 'bash scripts/setup-ssh.sh' desde la raíz del repo"
@@ -31,8 +33,8 @@ else
     cat >> "$SSHCFG" << EOF
 
 Host $HOST
-  HostName db-host.example.com
-  User forge
+  HostName $HOSTNAME
+  User $SSH_USER
   IdentityFile $KEY
 EOF
     chmod 600 "$SSHCFG"
@@ -41,12 +43,12 @@ fi
 
 echo
 echo "===== PENDIENTE (1 paso manual) ====="
-echo "Añade la clave pública a Forge (no puedo hacerlo sin credenciales):"
-echo "1. Web: forge.laravel.com > db-host > SSH Keys > Add Key"
-echo "2. O con forge-cli: 'forge server:ssh-keys --server db-host'"
+echo "Añade la clave pública al servidor (no puedo hacerlo sin credenciales):"
+echo "1. Web: panel del proveedor (p.ej. Forge) > servidor $HOST > SSH Keys > Add Key"
+echo "2. O con un CLI del proveedor: 'forge server:ssh-keys --server $HOST'"
 echo
 echo "===== CLAVE PÚBLICA (copiar) ====="
 cat "$KEY.pub"
 echo
-echo "Cuando esté añadida, prueba: ssh db-host 'echo OK'"
+echo "Cuando esté añadida, prueba: ssh $HOST 'echo OK'"
 echo "Después levanta el túnel: bash scripts/tunnel.sh"

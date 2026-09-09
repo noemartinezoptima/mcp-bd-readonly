@@ -1,6 +1,6 @@
 # mcp-bd-readonly
 
-Servidor MCP (Model Context Protocol) de solo lectura sobre la base de datos `back` (MySQL 8.4.9, servidor Forge `db-host`). Expone herramientas Tabularis para consultas de inventario/facturación sin ningún acceso de escritura.
+Servidor MCP (Model Context Protocol) de solo lectura sobre una base de datos MySQL (esquema `back`). Expone herramientas para consultas de inventario/facturación sin ningún acceso de escritura.
 
 **Módulo autocontenido**: este servidor es solo MySQL (`back`). No depende de `zero-teams-mcp` (Teams/Graph) ni de ningún otro MCP. En configs de cliente se registra de forma independiente; activar/desactivar otros MCPs no lo afecta.
 
@@ -8,14 +8,14 @@ Servidor MCP (Model Context Protocol) de solo lectura sobre la base de datos `ba
 
 1. **Parser en MCP** (`security.py`) — toda query pasa por `enforce_read_only()` en `QueryExecutor.run()` *antes* de abrir conexión. Veta `insert|update|delete|drop|truncate|alter|replace|create|grant|revoke|rename` en cualquier statement (incluye statements encadenados con `;` y precedidos por comentarios). Solo `SELECT / SHOW / DESCRIBE / DESC / EXPLAIN / WITH`.
 2. **Driver sin multi-statement** (`pymysql`) — `CLIENT.MULTI_STATEMENTS` desactivado por defecto: siquiera `SELECT 1; SELECT 2` es rechazado por el driver (1064) antes de llegar a MySQL. Un `SELECT 1; DROP TABLE x` además lo veta el parser.
-3. **Usuario MySQL `back_readonly`** — ya existe en el servidor con GRANT SELECT únicamente sobre `back.*`, conecta por **TCP** `127.0.0.1:3306` (vía túnel SSH a `db-host`). Cualquier `UPDATE`/`INSERT`/`DELETE` falla incluso si el parser se evadiera: `ERROR 1142 (42000): UPDATE command denied to user 'back_readonly'@'localhost'`. Verificado contra la BD real.
+3. **Usuario MySQL dedicado de solo lectura** — con GRANT SELECT únicamente sobre `back.*`, conecta por **TCP** `127.0.0.1:3306` (vía túnel SSH al host configurado en `TUNNEL_HOST`). Cualquier `UPDATE`/`INSERT`/`DELETE` falla incluso si el parser se evadiera: `ERROR 1142 (42000): UPDATE command denied to user '...'@'localhost'`. Verificado contra la BD real.
 
 Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de escritura configurado.
 
 ## Requisitos
 
 - Python 3.10+ (venv en `.venv`)
-- Acceso SSH a `db-host` (alias del host Forge)
+- Acceso SSH al host remoto de MySQL (alias `db-host` en `~/.ssh/config`, configurable con `SSH_HOST` / `TUNNEL_HOST`)
 - `~/.zt-readonly.env` (modo 600) con las credenciales:
   ```
   MYSQL_HOST=127.0.0.1
@@ -24,8 +24,9 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
   MYSQL_USER=back_readonly
   MYSQL_PASSWORD=...
   DATA_DIR=./data
+  TUNNEL_HOST=db-host
   ```
-  No se invalida si el archivo no existe; las variables de entorno `MYSQL_*`/`DATA_DIR` ganan sobre el archivo. En Windows el archivo cae en `%USERPROFILE%\.zt-readonly.env`.
+  No se invalida si el archivo no existe; las variables de entorno `MYSQL_*`/`DATA_DIR`/`TUNNEL_HOST` ganan sobre el archivo. En Windows el archivo cae en `%USERPROFILE%\.zt-readonly.env`.
 
 **Soporte Windows**: el código es portable (pathlib + pymysql + os.environ, sin rutas Unix). Diferencias: entry point en `.venv\Scripts\mcp-bd-readonly.exe`, túnel con `scripts/tunnel.ps1`. Instrucción completa para Claude en [`SETUP-WINDOWS.md`](SETUP-WINDOWS.md).
 
@@ -35,7 +36,7 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
    ```bash
    bash scripts/setup-ssh.sh
    ```
-   Al final imprime la clave pública para añadirla a Forge (1 paso manual). Verificado: `ssh db-host 'echo OK'`.
+   Configura los valores reales con `SSH_HOST`/`SSH_HOSTNAME`/`SSH_KEY`/`SSH_USER` (o defaults en `~/.ssh/config`). Al final imprime la clave pública para añadirla al servidor (1 paso manual). Verificado: `ssh db-host 'echo OK'`.
 
 1. Ejecutar el servidor MCP (stdio). **El túnel SSH se gestiona solo**: si `127.0.0.1:13306` no responde, el MCP lanza `ssh -N -L 13306:127.0.0.1:3306 db-host` como subproceso y lo cierra al terminar:
    ```bash
@@ -50,7 +51,7 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
    scripts\tunnel.ps1           # Windows
    ```
 
-El host SSH a usar por el auto-túnel se configura con `TUNNEL_HOST` (default `db-host`) en `~/.zt-readonly.env`.
+El host SSH a usar por el auto-túnel se configura con `TUNNEL_HOST` (default: host en `~/.zt-readonly.env` o `db-host`).
 
 ## Herramientas
 

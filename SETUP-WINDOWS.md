@@ -13,7 +13,7 @@ venv (`Scripts` en vez de `bin`) y el túnel SSH (`tunnel.ps1` en vez de `tunnel
 
 - Python 3.10+ desde https://python.org (marca "Add python to PATH")
 - Git for Windows (incluye OpenSSH client; si no, activar feature opcional "OpenSSH Client")
-- Acceso SSH al host Forge `db-host` (alias configurado en `~/.ssh/config`) con clave privada cargada
+- Acceso SSH al host remoto de MySQL (alias `db-host` en `~/.ssh/config`, configurable con `SSH_HOST`/`TUNNEL_HOST`) con clave privada cargada
 - Código clonado: `mcp-bd-readonly/`
 
 Criterio: `python --version` → 3.10+ y `ssh db-host 'echo ok'` responde `ok`.

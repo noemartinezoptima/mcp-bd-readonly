@@ -29,7 +29,7 @@ class TunnelManager:
         """
         if _port_open(self.cfg.host, self.cfg.port):
             return "ok"
-        host_key = self.cfg.tunnel_host or "db-host"
+        host_key = self.cfg.tunnel_host
         local = f"{self.cfg.port}:127.0.0.1:{self.remote_port}"
         try:
             self._proc = subprocess.Popen(

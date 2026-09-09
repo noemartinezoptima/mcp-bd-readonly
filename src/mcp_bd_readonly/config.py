@@ -40,5 +40,5 @@ def load_config(env_file: Path | None = None) -> Config:
         user=get("MYSQL_USER"),
         password=get("MYSQL_PASSWORD"),
         data_dir=Path(get("DATA_DIR", "./data")),
-        tunnel_host=get("TUNNEL_HOST", "db-host"),
+        tunnel_host=get("TUNNEL_HOST"),
     )
