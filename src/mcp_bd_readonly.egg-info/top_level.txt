@@ -1,1 +1,0 @@
-mcp_bd_readonly
