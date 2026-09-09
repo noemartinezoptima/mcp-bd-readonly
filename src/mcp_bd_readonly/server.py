@@ -3,6 +3,7 @@ from mcp_bd_readonly.config import load_config
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
 from mcp_bd_readonly.tools_core import build_tools
+from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 
 def main():
     cfg = load_config()
@@ -10,6 +11,8 @@ def main():
     audit = AuditLogger(cfg.data_dir)
     mcp = FastMCP("mcp-bd-readonly")
     for fn in build_tools(executor, audit):
+        mcp.tool()(fn)
+    for fn in build_finanzas_tools(executor, audit):
         mcp.tool()(fn)
     mcp.run()
 
