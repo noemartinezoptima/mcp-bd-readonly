@@ -172,3 +172,24 @@ def test_describe_wrapper(monkeypatch):
     cols, rows = ex.describe("clientes")
     assert seen == ["DESCRIBE `clientes`"]
     assert rows[0]["Field"] == "id"
+
+
+def test_run_skips_clamp_when_limit_none(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT a FROM t", limit=None)
+    assert cur.executed == "SELECT a FROM t"
+
+
+def test_describe_escapes_backticks(monkeypatch):
+    ex = make_executor()
+    seen = []
+
+    def fake_run(sql, params=None, limit=100):
+        seen.append(sql)
+        return [], []
+
+    monkeypatch.setattr(ex, "run", fake_run)
+    ex.describe("x`; DROP TABLE y; --")
+    assert seen == ["DESCRIBE `x``; DROP TABLE y; --`"]

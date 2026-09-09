@@ -25,7 +25,7 @@ class QueryExecutor:
     def run(self, sql, params=None, limit=100):
         enforce_read_only(sql)
         clamped = sql
-        if "limit" not in sql.lower():
+        if limit and "limit" not in sql.lower():
             clamped = f"{sql.rstrip().rstrip(';')} LIMIT {int(limit)}"
         with self._conn() as c:
             with c.cursor() as cur:
@@ -35,13 +35,14 @@ class QueryExecutor:
         return cols, rows
 
     def databases(self):
-        return self.run("SHOW DATABASES")
+        return self.run("SHOW DATABASES", limit=None)
 
     def tables(self):
-        return self.run("SHOW TABLES")
+        return self.run("SHOW TABLES", limit=None)
 
     def describe(self, table):
-        return self.run(f"DESCRIBE `{table}`")
+        safe = table.replace("`", "``")
+        return self.run(f"DESCRIBE `{safe}`", limit=None)
 
 
 def _convert(row: dict) -> dict:
