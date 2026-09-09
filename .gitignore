@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
-*.egg-info/
 data/
 *.env
 .zt-readonly.env
+*.egg-info/
