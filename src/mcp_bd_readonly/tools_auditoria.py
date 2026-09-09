@@ -53,7 +53,7 @@ def saldos_cliente(ex, cliente_id) -> dict:
 
 
 def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
-    sql = ("SELECT codigo, fecha_factura, base_euros, iva_euros, total_euros, estado_id "
+    sql = ("SELECT codigo, fecha_factura, base_moneda, iva_euros, total_euros, estado_id "
            "FROM facturas_venta WHERE deleted_at IS NULL "
            "AND DATE(fecha_factura) BETWEEN %s AND %s")
     _, rows = ex.run(sql, [fecha_desde, fecha_hasta], limit=None)
@@ -93,16 +93,31 @@ def informe_financiero(ex, fecha_desde, fecha_hasta) -> dict:
 
 def build_auditoria_tools(executor: QueryExecutor, audit: AuditLogger):
 
-    def _wrapped(name, fn):
-        def wrapper(*args, **kwargs):
-            audit and audit.record(name, "mcp", getattr(fn, "_sql_hint", name))
-            return fn(executor, *args, **kwargs)
-        wrapper.__name__ = name
-        return wrapper
+    def _tool(name, doc):
+        def wrap(fn):
+            fn.__name__ = name
+            fn.__doc__ = doc
+            return fn
+        return wrap
 
-    return [
-        _wrapped("conciliar_remesas", conciliar_remesas),
-        _wrapped("saldos_cliente", saldos_cliente),
-        _wrapped("excepciones", excepciones),
-        _wrapped("informe_financiero", informe_financiero),
-    ]
+    @_tool("conciliar_remesas", "Total emitido vs acreditado de remesas (pago = fecha_pagado)")
+    def tool_conciliar():
+        audit and audit.record("conciliar_remesas", "mcp", "conciliar_remesas")
+        return conciliar_remesas(executor)
+
+    @_tool("saldos_cliente", "Facturado vs cobrado y pendiente de un cliente")
+    def tool_saldos(cliente_id: int):
+        audit and audit.record("saldos_cliente", "mcp", "saldos_cliente")
+        return saldos_cliente(executor, cliente_id)
+
+    @_tool("excepciones", "Facturas sobre umbral clasificadas por materialidad")
+    def tool_excepciones(fecha_desde: str, fecha_hasta: str, umbral: float):
+        audit and audit.record("excepciones", "mcp", "excepciones")
+        return excepciones(executor, fecha_desde, fecha_hasta, umbral)
+
+    @_tool("informe_financiero", "Informe Markdown + CSV(;) de un periodo")
+    def tool_informe(fecha_desde: str, fecha_hasta: str):
+        audit and audit.record("informe_financiero", "mcp", "informe_financiero")
+        return informe_financiero(executor, fecha_desde, fecha_hasta)
+
+    return [tool_conciliar, tool_saldos, tool_excepciones, tool_informe]

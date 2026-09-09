@@ -15,6 +15,8 @@ class FakeEx:
         self.calls.append((sql, params, limit))
         if "lineas" in sql:
             return ["total_euros"], [{"total_euros": Decimal("110.00")}, {"total_euros": Decimal("10.00")}]
+        if "COUNT(*)" in sql or sql.strip().startswith("SELECT COUNT"):
+            return ["n"], [{"n": 2}]
         if not self._default_rows and "WHERE id=%s" in sql:
             return ["total_euros"], [{"total_euros": Decimal("120.00")}]
         return self._default_cols, self._default_rows
@@ -62,11 +64,11 @@ def test_cuadre_no_header():
 
 def test_facturas_venta_basic():
     ex = FakeEx(
-        default_cols=["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"],
+        default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
         default_rows=[
-            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_euros": Decimal("100.00"),
+            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_moneda": Decimal("100.00"),
              "iva_euros": Decimal("21.00"), "total_euros": Decimal("121.00"), "estado_id": 1},
-            {"codigo": "F-002", "fecha_factura": "2026-08-15", "base_euros": Decimal("200.00"),
+            {"codigo": "F-002", "fecha_factura": "2026-08-15", "base_moneda": Decimal("200.00"),
              "iva_euros": Decimal("42.00"), "total_euros": Decimal("242.00"), "estado_id": 2},
         ],
     )
@@ -84,7 +86,7 @@ def test_facturas_venta_basic():
 
 def test_facturas_venta_with_client():
     ex = FakeEx(
-        default_cols=["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"],
+        default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
         default_rows=[],
     )
     facturas_venta(ex, "2026-08-01", "2026-08-31", cliente=5)
@@ -96,7 +98,7 @@ def test_facturas_venta_with_client():
 
 def test_facturas_venta_no_client():
     ex = FakeEx(
-        default_cols=["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"],
+        default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
         default_rows=[],
     )
     facturas_venta(ex, "2026-08-01", "2026-08-31")
@@ -108,13 +110,14 @@ def test_facturas_venta_no_client():
 
 def test_resumen_iva_quarter2():
     ex = FakeEx(
-        default_cols=["base_euros", "iva_euros", "total_euros"],
+        default_cols=["base_moneda", "iva_euros", "total_euros"],
         default_rows=[
-            {"base_euros": Decimal("1000.00"), "iva_euros": Decimal("210.00"), "total_euros": Decimal("1210.00")},
+            {"base_moneda": Decimal("1000.00"), "iva_euros": Decimal("210.00"), "total_euros": Decimal("1210.00")},
         ],
     )
     result = resumen_iva(ex, 2, 2026)
-    sql, params, _limit = ex.calls[0]
+    sql, params, limit = ex.calls[0]
+    assert limit is None
     assert params[0] == "2026-04-01 00:00:00"
     assert params[1] == "2026-07-01 00:00:00"
     assert result["base"] == Decimal("1000.00")
@@ -127,7 +130,7 @@ def test_resumen_iva_quarter2():
 
 def test_resumen_iva_quarter3():
     ex = FakeEx(
-        default_cols=["base_euros", "iva_euros", "total_euros"],
+        default_cols=["base_moneda", "iva_euros", "total_euros"],
         default_rows=[],
     )
     result = resumen_iva(ex, 3, 2026)
@@ -148,17 +151,20 @@ def test_remesas_pendientes():
         ],
     )
     result = remesas_pendientes(ex)
-    assert len(result) == 2
-    r0 = result[0]
+    assert result["total"] == Decimal("2")
+    assert result["limit_aplicado"] == 50
+    assert len(result["pendientes"]) == 2
+    r0 = result["pendientes"][0]
     assert r0["codigo"] == "R-001"
     assert r0["fecha_vencimiento"] == "2026-08-01"
     assert r0["total_euros"] == Decimal("500.00")
     assert r0["estado_id"] == 1
     assert r0["regularizado"] == 0
-    sql, params, _limit = ex.calls[0]
+    sql, params, _limit = ex.calls[1]
     assert "regularizado = 0" in sql
     assert "deleted_at IS NULL" in sql
-    assert params is None
+    assert "LIMIT %s" in sql
+    assert params == [50]
 
 
 def test_build_finanzas_tools_registers_four():
@@ -179,7 +185,8 @@ def test_build_finanzas_tools_audit():
     tools = build_finanzas_tools(ex, audit)
     fn_map = {t.__name__: t for t in tools}
     result = fn_map["remesas_pendientes"]()
-    assert len(result) == 1
+    assert len(result["pendientes"]) == 1
+    assert result["total"] == Decimal("2")
     assert len(audit.calls) == 1
     assert audit.calls[0][0] == "remesas_pendientes"
     assert audit.calls[0][1] == "mcp"

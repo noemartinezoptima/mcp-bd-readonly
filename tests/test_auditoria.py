@@ -77,12 +77,12 @@ def test_excepciones_filtra_umbral():
 
     def run(sql, params=None, limit=100):
         ex.calls.append((sql, params, limit))
-        return ["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"], [
-            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_euros": Decimal("400.00"),
+        return ["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"], [
+            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_moneda": Decimal("400.00"),
              "iva_euros": Decimal("84.00"), "total_euros": Decimal("500.00"), "estado_id": 1},
-            {"codigo": "F-002", "fecha_factura": "2026-08-05", "base_euros": Decimal("1000.00"),
+            {"codigo": "F-002", "fecha_factura": "2026-08-05", "base_moneda": Decimal("1000.00"),
              "iva_euros": Decimal("210.00"), "total_euros": Decimal("1500.00"), "estado_id": 2},
-            {"codigo": "F-003", "fecha_factura": "2026-08-10", "base_euros": Decimal("6000.00"),
+            {"codigo": "F-003", "fecha_factura": "2026-08-10", "base_moneda": Decimal("6000.00"),
              "iva_euros": Decimal("1260.00"), "total_euros": Decimal("8000.00"), "estado_id": 3},
         ]
 
@@ -103,8 +103,8 @@ def test_informe_financiero_markdown_y_csv():
 
     def run(sql, params=None, limit=100):
         ex.calls.append((sql, params, limit))
-        return ["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"], [
-            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_euros": Decimal("100.00"),
+        return ["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"], [
+            {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_moneda": Decimal("100.00"),
              "iva_euros": Decimal("21.00"), "total_euros": Decimal("121.00"), "estado_id": 1},
         ]
 

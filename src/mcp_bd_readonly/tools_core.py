@@ -8,18 +8,18 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
 
     def list_databases() -> list[str]:
         audit and audit.record("list_databases", "mcp", "SHOW DATABASES")
-        cols, rows = executor.run("SHOW DATABASES")
+        cols, rows = executor.run("SHOW DATABASES", limit=None)
         return [r.get("Database") or next(iter(r.values())) for r in rows]
 
     def list_tables(schema: str = "back") -> list[str]:
         audit and audit.record("list_tables", "mcp", f"SHOW TABLES FROM {schema}")
-        cols, rows = executor.run(f"SHOW TABLES FROM {_quote_id(schema)}")
+        cols, rows = executor.run(f"SHOW TABLES FROM {_quote_id(schema)}", limit=None)
         key = cols[0]
         return [r[key] for r in rows]
 
     def describe_table(table: str) -> list[dict]:
         audit and audit.record("describe_table", "mcp", f"DESCRIBE {table}")
-        _, rows = executor.run(f"DESCRIBE {_quote_id(table)}")
+        _, rows = executor.run(f"DESCRIBE {_quote_id(table)}", limit=None)
         return rows
 
     def run_query(query: str, limit: int = 100) -> dict:
