@@ -12,7 +12,7 @@ class FakeEx:
         self.calls = []
 
     def run(self, sql, params=None, limit=100):
-        self.calls.append((sql, params))
+        self.calls.append((sql, params, limit))
         if "lineas" in sql:
             return ["total_euros"], [{"total_euros": Decimal("110.00")}, {"total_euros": Decimal("10.00")}]
         if not self._default_rows and "WHERE id=%s" in sql:
@@ -88,9 +88,10 @@ def test_facturas_venta_with_client():
         default_rows=[],
     )
     facturas_venta(ex, "2026-08-01", "2026-08-31", cliente=5)
-    sql, params = ex.calls[0]
+    sql, params, limit = ex.calls[0]
     assert "cliente_id = %s" in sql
     assert params == ["2026-08-01", "2026-08-31", 5]
+    assert limit is None
 
 
 def test_facturas_venta_no_client():
@@ -99,9 +100,10 @@ def test_facturas_venta_no_client():
         default_rows=[],
     )
     facturas_venta(ex, "2026-08-01", "2026-08-31")
-    sql, params = ex.calls[0]
+    sql, params, limit = ex.calls[0]
     assert "cliente_id" not in sql
     assert params == ["2026-08-01", "2026-08-31"]
+    assert limit is None
 
 
 def test_resumen_iva_quarter2():
@@ -112,7 +114,7 @@ def test_resumen_iva_quarter2():
         ],
     )
     result = resumen_iva(ex, 2, 2026)
-    sql, params = ex.calls[0]
+    sql, params, _limit = ex.calls[0]
     assert params[0] == "2026-04-01 00:00:00"
     assert params[1] == "2026-07-01 00:00:00"
     assert result["base"] == Decimal("1000.00")
@@ -129,7 +131,7 @@ def test_resumen_iva_quarter3():
         default_rows=[],
     )
     result = resumen_iva(ex, 3, 2026)
-    sql, params = ex.calls[0]
+    sql, params, _limit = ex.calls[0]
     assert params[0] == "2026-07-01 00:00:00"
     assert params[1] == "2026-10-01 00:00:00"
     assert result["base"] == Decimal("0.00")
@@ -153,7 +155,7 @@ def test_remesas_pendientes():
     assert r0["total_euros"] == Decimal("500.00")
     assert r0["estado_id"] == 1
     assert r0["regularizado"] == 0
-    sql, params = ex.calls[0]
+    sql, params, _limit = ex.calls[0]
     assert "regularizado = 0" in sql
     assert "deleted_at IS NULL" in sql
     assert params is None

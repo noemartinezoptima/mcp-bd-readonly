@@ -17,7 +17,7 @@ class FakeEx:
         self.calls = []
 
     def run(self, sql, params=None, limit=100):
-        self.calls.append((sql, params))
+        self.calls.append((sql, params, limit))
         return self._default_cols, self._default_rows
 
 
@@ -41,7 +41,7 @@ def test_saldos_cliente_dispatch():
     ex = FakeEx()
 
     def run(sql, params=None, limit=100):
-        ex.calls.append((sql, params))
+        ex.calls.append((sql, params, limit))
         if "vista_efectos_pago" in sql:
             return ["v"], [{"v": Decimal("500")}]
         return ["v"], [{"v": Decimal("1200")}]
@@ -59,7 +59,7 @@ def test_conciliar_remesas_dispatch():
     ex = FakeEx()
 
     def run(sql, params=None, limit=100):
-        ex.calls.append((sql, params))
+        ex.calls.append((sql, params, limit))
         if "fecha_pagado IS NOT NULL" in sql:
             return ["v"], [{"v": Decimal("7500")}]
         return ["v"], [{"v": Decimal("10000")}]
@@ -76,7 +76,7 @@ def test_excepciones_filtra_umbral():
     ex = FakeEx()
 
     def run(sql, params=None, limit=100):
-        ex.calls.append((sql, params))
+        ex.calls.append((sql, params, limit))
         return ["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"], [
             {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_euros": Decimal("400.00"),
              "iva_euros": Decimal("84.00"), "total_euros": Decimal("500.00"), "estado_id": 1},
@@ -88,6 +88,8 @@ def test_excepciones_filtra_umbral():
 
     ex.run = run
     res = excepciones(ex, "2026-08-01", "2026-08-31", Decimal("1000"))
+    _sql, _params, limit_kw = ex.calls[0]
+    assert limit_kw is None
     assert len(res["excepciones"]) == 2
     assert [e["severidad"] for e in res["excepciones"]] == ["CRITICAL", "CRITICAL"]
     assert res["resumen"] == {"CRITICAL": 2, "WARNING": 0, "INFO": 0}
@@ -100,7 +102,7 @@ def test_informe_financiero_markdown_y_csv():
     ex = FakeEx()
 
     def run(sql, params=None, limit=100):
-        ex.calls.append((sql, params))
+        ex.calls.append((sql, params, limit))
         return ["codigo", "fecha_factura", "base_euros", "iva_euros", "total_euros", "estado_id"], [
             {"codigo": "F-001", "fecha_factura": "2026-08-01", "base_euros": Decimal("100.00"),
              "iva_euros": Decimal("21.00"), "total_euros": Decimal("121.00"), "estado_id": 1},
@@ -126,7 +128,7 @@ def test_build_auditoria_tools_audit():
     ex = FakeEx()
 
     def run(sql, params=None, limit=100):
-        ex.calls.append((sql, params))
+        ex.calls.append((sql, params, limit))
         return ["v"], [{"v": Decimal("100")}]
 
     ex.run = run

@@ -16,7 +16,7 @@ def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None):
     if cliente:
         sql += " AND cliente_id = %s"
         params.append(cliente)
-    _, rows = ex.run(sql, params)
+    _, rows = ex.run(sql, params, limit=None)
     out = []
     for r in rows:
         out.append({

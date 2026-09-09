@@ -56,7 +56,7 @@ def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
     sql = ("SELECT codigo, fecha_factura, base_euros, iva_euros, total_euros, estado_id "
            "FROM facturas_venta WHERE deleted_at IS NULL "
            "AND DATE(fecha_factura) BETWEEN %s AND %s")
-    _, rows = ex.run(sql, [fecha_desde, fecha_hasta])
+    _, rows = ex.run(sql, [fecha_desde, fecha_hasta], limit=None)
     umbral_d = _d(umbral)
     out = []
     resumen = {"CRITICAL": 0, "WARNING": 0, "INFO": 0}
