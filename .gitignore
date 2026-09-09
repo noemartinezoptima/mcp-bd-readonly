@@ -6,3 +6,5 @@ data/
 *.env
 .zt-readonly.env
 *.egg-info/
+
+.superpowers/
