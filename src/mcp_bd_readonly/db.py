@@ -40,7 +40,7 @@ class QueryExecutor:
                 clamped = f"{sql.rstrip().rstrip(';')} LIMIT {int(limit)}"
         with self._conn() as c:
             with c.cursor() as cur:
-                cur.execute(clamped, params or ())
+                cur.execute(clamped, params or None)
                 cols = [d[0] for d in cur.description] if cur.description else []
                 rows = [_convert(r) for r in cur.fetchall()]
         if limit and rows and not clamped.lower().endswith(f"limit {int(limit)}"):

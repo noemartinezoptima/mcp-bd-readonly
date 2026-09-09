@@ -93,6 +93,14 @@ def test_run_parametrized(monkeypatch):
     assert cur.params == [7, "x"]
 
 
+def test_run_no_params_passes_none_not_empty_tuple(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT DATE_FORMAT(now(), '%Y-%m')")
+    assert cur.params is None
+
+
 @pytest.mark.parametrize(
     "bad",
     [
