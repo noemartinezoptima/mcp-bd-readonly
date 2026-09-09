@@ -57,7 +57,7 @@ def test_list_tables():
     [_, list_tables, *_] = build_tools(executor, audit)
     result = list_tables("back")
     assert result == ["users", "orders"]
-    assert executor.sqls[0] == "SHOW TABLES FROM back"
+    assert executor.sqls[0] == "SHOW TABLES FROM `back`"
     assert audit.calls[0][2] == "SHOW TABLES FROM back"
 
 
@@ -88,6 +88,20 @@ def test_run_query():
 
 def test_run_query_no_columns():
     executor = FakeExecutor([], [])
-    [_, _, _, run_query] = build_tools(FakeExecutor([], []), None)
+    [_, _, _, run_query] = build_tools(executor, None)
     result = run_query("SELECT 1")
     assert result == {"columns": [], "rows": []}
+
+
+def test_describe_table_escapes_backticks():
+    executor = FakeExecutor(["Field"], [])
+    [_, _, describe_table, _] = build_tools(executor, None)
+    describe_table("a`b")
+    assert executor.sqls[0] == "DESCRIBE `a``b`"
+
+
+def test_list_tables_quotes_schema():
+    executor = FakeExecutor(["Tables_in_back"], [])
+    [_, list_tables, _, _] = build_tools(executor, None)
+    list_tables("my`db")
+    assert executor.sqls[0] == "SHOW TABLES FROM `my``db`"

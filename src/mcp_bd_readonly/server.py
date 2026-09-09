@@ -1,4 +1,3 @@
-import asyncio
 from fastmcp import FastMCP
 from mcp_bd_readonly.config import load_config
 from mcp_bd_readonly.db import QueryExecutor
