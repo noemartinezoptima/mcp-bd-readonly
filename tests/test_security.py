@@ -36,6 +36,8 @@ def test_allows_read_commands(ok):
     "update facturas SET x=1",
     "SELECT * FROM facturas_venta; DROP TABLE facturas_venta;",
     "SELECT 1; UPDATE facturas SET x=1",
+    "SELECT 1; /* x */ DROP TABLE facturas_venta",
+    "SELECT 1;\n-- comentario\nDELETE FROM facturas_venta",
 ])
 def test_rejects_dml(bad):
     with pytest.raises(ReadOnlyViolation):
