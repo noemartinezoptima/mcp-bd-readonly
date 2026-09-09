@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-bd-readonly = mcp_bd_readonly.server:main

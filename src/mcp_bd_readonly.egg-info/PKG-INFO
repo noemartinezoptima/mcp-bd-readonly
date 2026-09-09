@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: mcp-bd-readonly
+Version: 0.1.0
+Summary: Read-only MySQL MCP for optimaback back DB (finance + audit)
+Requires-Python: >=3.10
+Requires-Dist: fastmcp<2,>=1.0
+Requires-Dist: pymysql<2,>=1.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

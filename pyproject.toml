@@ -1,0 +1,25 @@
+[project]
+name = "mcp-bd-readonly"
+version = "0.1.0"
+description = "Read-only MySQL MCP for optimaback back DB (finance + audit)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=1.0,<2",
+    "pymysql>=1.1,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mcp-bd-readonly = "mcp_bd_readonly.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
