@@ -6,6 +6,8 @@ requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=1.0,<2",
     "pymysql>=1.1,<2",
+    "openpyxl>=3.1.5,<4",
+    "formualizer>=0.9,<1",
 ]
 
 [project.optional-dependencies]

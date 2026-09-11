@@ -30,6 +30,50 @@ py -m venv .venv
 
 Criterio: existe `.venv\Scripts\mcp-bd-readonly.exe`.
 
+## Paso 1.5 — LibreOffice (recálculo de fórmulas Excel)
+
+`leer_excel` solo puede evaluar fórmulas *dinámicas* (SEQUENCE, FILTER, arrays)
+realmente si hay un motor de cálculo con LibreOffice. Sin él, el fallback es
+`formualizer` (sin arrays dinámicos) o valores cached.
+
+Instalar (PowerShell, una de estas dos):
+
+```powershell
+winget install --id TheDocumentFoundation.LibreOffice -e
+# o, vía winget CLI directa:
+winget install TheDocumentFoundation.LibreOffice
+```
+
+Ruta esperada: `C:\Program Files\LibreOffice\program\soffice.exe`
+(variante x86 en `C:\Program Files (x86)\LibreOffice\program\soffice.exe`).
+
+Criterio: `& "C:\Program Files\LibreOffice\program\soffice.exe" --version` devuelve
+una línea `LibreOffice x.y`.
+
+Si no quieres instalar nada, el server sigue funcionando (estrategia automática
+`formualizer` o `cached_only`), pero las fórmulas bypasses de recálculo completo
+pueden reportarse como error.
+
+### Permiso para que Claude instale/verifique LibreOffice
+
+Claude Code pedirá permiso para ejecutar winget. Añadir al `.claude/settings.json`
+o `settings.local.json` del proyecto:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget install TheDocumentFoundation.LibreOffice)",
+      "Bash(winget install -e --id TheDocumentFoundation.LibreOffice *)",
+      "Bash(& \"C:\\Program Files\\LibreOffice\\program\\soffice.exe\" --version)"
+    ]
+  }
+}
+```
+
+(En macOS el equivalente ya está permitido: `Bash(brew install --cask libreoffice)`,
+la ruta es `/Applications/LibreOffice.app/Contents/MacOS/soffice`.)
+
 ## Paso 2 — Credenciales
 
 Copiar `.env.example` a `%USERPROFILE%\.zt-readonly.env` (es el mismo archivo que
@@ -93,9 +137,11 @@ Criterio: `claude mcp list` muestra `mcp-bd-readonly` (health `connected`).
 
 En Claude, pedir:
 
-- "lista las herramientas de mcp-bd-readonly" → 12 tools
+- "lista las herramientas de mcp-bd-readonly" → 16 tools
 - `run_query` con `SELECT COUNT(*) FROM facturas_venta` → devuelve un número
 - `resumen_iva(2, 2026)` → objeto con `base_es`/`iva_es`/`total_es`
+- `check_excel_capabilities` → `strategy` = `libreoffice` (si se instaló en 1.5), `formualizer` o `cached_only`
+- `leer_excel("C:\\ruta\\a\\libro.xlsx", force_recalc=True)` → celdas con fórmula `f` + valor calculado `v`
 - cualquier `UPDATE`/DML → error de solo lectura (barrera #1 parser; barrera #2 = usuario MySQL `back_readonly` con GRANT SELECT)
 
 Criterio: `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN SELECT`, `WITH`(CTE), subqueries, `UNION`,
