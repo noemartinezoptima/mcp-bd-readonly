@@ -40,13 +40,20 @@ def auditoria(data_dir: Path, max_n: int = 100) -> dict:
 
 def build_meta_tools(cfg: Config, audit: AuditLogger):
 
+    def _tool(name, doc):
+        def wrap(fn):
+            fn.__name__ = name
+            fn.__doc__ = doc
+            return fn
+        return wrap
+
+    @_tool("estado_tunel", "Healthcheck read-only del túnel SSH (host/puerto/estado, sin credenciales)")
     def tool_estado_tunel() -> dict:
-        """Healthcheck read-only del túnel SSH (host/puerto/estado, sin credenciales)."""
         audit and audit.record("estado_tunel", "mcp", "estado_tunel")
         return estado_tunel(cfg)
 
+    @_tool("auditoria", "Lee las últimas max_n entradas de auditoría (data/audit.jsonl), read-only")
     def tool_auditoria(max_n: int = 100) -> dict:
-        """Lee las últimas max_n entradas de auditoría (data/audit.jsonl), read-only."""
         audit and audit.record("auditoria", "mcp", "auditoria")
         return auditoria(cfg.data_dir, max_n)
 

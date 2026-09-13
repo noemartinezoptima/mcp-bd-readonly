@@ -54,7 +54,49 @@ def test_describe_tablas_clave_default_tablas():
 def test_tool_wrapper_registra_auditoria():
     ex = FakeEx()
     audit = FakeAudit()
-    (tool,) = build_catalogo_tools(ex, audit)
+    tools = build_catalogo_tools(ex, audit)
+    assert len(tools) == 2
+    tool = tools[0]
     result = tool(["clientes"])
     assert "clientes" in result
     assert audit.calls[0][0] == "describe_tablas_clave"
+
+
+def test_detalle_establecimiento_haz_join_y_responsable():
+    from mcp_bd_readonly.tools_catalogo import detalle_establecimiento
+
+    class FakeExRows:
+        def run(self, sql, params=None, limit=100):
+            return ["id"], [{
+                "id": 668, "nombre": "KIKO MILANO - SPAIN",
+                "codigo": "P26/00299", "direccion_1": "CC Espai Gironès",
+                "poblacion": "SALT", "provincia": "GIRONA", "codigo_postal": "17190",
+                "telefono": "34972 43 92 46", "correo": "x@kiko.com", "observaciones": None,
+                "responsable": "Maria Prat - Optima Retail (EQ4)", "cliente": "KIKO RETAIL ESPAÑA SLU",
+            }]
+
+    out = detalle_establecimiento(FakeExRows(), "kiko")
+    assert out["n_encontrados"] == 1
+    e = out["establecimientos"][0]
+    assert e["responsable"] == "Maria Prat - Optima Retail (EQ4)"
+    assert e["cliente"] == "KIKO RETAIL ESPAÑA SLU"
+    assert e["codigo"] == "P26/00299"
+    assert e["direccion"] == "CC Espai Gironès, SALT, GIRONA"
+
+
+def test_detalle_establecimiento_filtra_nulos():
+    from mcp_bd_readonly.tools_catalogo import _filter_establecimiento
+
+    class FakeExRows:
+        def __init__(self):
+            self.sql = None
+
+        def run(self, sql, params=None, limit=100):
+            self.sql = sql
+            return ["id"], []
+
+    ex = FakeExRows()
+    _filter_establecimiento(ex, "nope")
+    assert "deleted_at IS NULL" in ex.sql
+    assert "LEFT JOIN users" in ex.sql
+    assert "LEFT JOIN clientes" in ex.sql

@@ -12,10 +12,10 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         cols, rows = executor.run("SHOW DATABASES", limit=None)
         return [r.get("Database") or next(iter(r.values())) for r in rows]
 
-    def list_tables(schema: str = "back") -> list[str]:
+    def list_tables(esquema: str = "back") -> list[str]:
         """Lista las tablas de un esquema (default 'back')."""
-        audit and audit.record("list_tables", "mcp", f"SHOW TABLES FROM {schema}")
-        cols, rows = executor.run(f"SHOW TABLES FROM {_quote_id(schema)}", limit=None)
+        audit and audit.record("list_tables", "mcp", f"SHOW TABLES FROM {esquema}")
+        cols, rows = executor.run(f"SHOW TABLES FROM {_quote_id(esquema)}", limit=None)
         key = cols[0]
         return [r[key] for r in rows]
 

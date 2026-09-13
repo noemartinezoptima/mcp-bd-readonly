@@ -39,8 +39,14 @@ def _copy_to_clipboard(text: str) -> bool:
     return False
 
 
-def setup_ssh(email: str | None = None) -> dict:
-    """Prepara SSH para el túnel de BD: genera clave ed25519 si falta, añade el host al config, y devuelve la clave pública lista para Forge."""
+def setup_ssh(email: str | None = None, confirmar: bool = False) -> dict:
+    """[ADMIN] Prepara SSH para el túnel de BD: ESCRIBE en el sistema (genera clave ed25519 si falta, añade host a ~/.ssh/config y copia la clave pública al portapapeles). Requiere confirmación explícita del humano: llamar con confirmar=True."""
+    if not confirmar:
+        return {
+            "ok": False,
+            "error": "setup_ssh es [ADMIN]: escribe en el sistema (clave SSH + ~/.ssh/config + portapapeles). "
+                     "Rechazada sin confirmación explícita. Pide aprobación al humano y llama con confirmar=True.",
+        }
     key = _key_path()
     cfg = _ssh_cfg_path()
     steps = []

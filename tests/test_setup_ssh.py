@@ -24,7 +24,7 @@ class TestSetupSsh(unittest.TestCase):
             os.environ.pop("HOME", None)
 
     def test_generates_key_adds_host(self):
-        r = tools_setup.setup_ssh(email="test@dev.local")
+        r = tools_setup.setup_ssh(email="test@dev.local", confirmar=True)
         assert r["ok"] is True
         assert r["clave_generada"] is True
         assert r["email"] == "test@dev.local"
@@ -35,13 +35,21 @@ class TestSetupSsh(unittest.TestCase):
         assert "db-host.example.com" in cfg
 
     def test_idempotent_no_regenerate(self):
-        tools_setup.setup_ssh(email="a@b.c")
-        r2 = tools_setup.setup_ssh(email="d@e.f")
+        tools_setup.setup_ssh(email="a@b.c", confirmar=True)
+        r2 = tools_setup.setup_ssh(email="d@e.f", confirmar=True)
         assert r2["clave_generada"] is False
 
     def test_errors_without_email(self):
         with self.assertRaises(ValueError):
-            tools_setup.setup_ssh(email=None)
+            tools_setup.setup_ssh(email=None, confirmar=True)
+
+    def test_refuses_without_confirmation(self):
+        r = tools_setup.setup_ssh(email="test@dev.local")
+        assert r["ok"] is False
+        assert "confirm" in r["error"]
+        assert not os.path.exists(os.path.join(self.home, ".ssh", "config"))
+        assert not os.path.exists(os.path.join(self.home, ".ssh", "id_ed25519"))
+        assert not os.path.exists(os.path.join(self.home, ".ssh"))
 
 
 if __name__ == "__main__":
