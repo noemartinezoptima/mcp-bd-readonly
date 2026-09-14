@@ -91,10 +91,17 @@ que ya tiene las variables cargadas no necesitas `env`. Opcional: para forzar va
 ## Comprobación
 
 - `scripts/tunnel.sh` escuchando: `lsof -iTCP:13306 -sTCP:LISTEN` muestra la entrada ssh (Windows: `netstat -ano | findstr 13306` o `Test-NetConnection 127.0.0.1 -Port 13306`).
-- Consumidor MCP: `tools/list` expone 14 herramientas (`list_databases`, `list_tables`, `describe_table`,
+- Consumidor MCP: `tools/list` expone herramientas (29 total): `list_databases`, `list_tables`, `describe_table`,
   `run_query`, `facturas_venta`, `resumen_iva`, `remesas_pendientes`, `cuadre_factura`,
   `conciliar_remesas`, `saldos_cliente`, `excepciones`, `informe_financiero`,
-  `describe_tablas_clave`, `detalle_establecimiento`).
+  `describe_tablas_clave`, `detalle_establecimiento`, `dso_dpo_evolutivo`, `aging_efectos`,
+  `estado_tunel`, `auditoria`, `setup_ssh`([ADMIN]), `leer_excel`, `check_excel_capabilities`,
+  `resumen_excel`, `reconciliar_excel_bd`, `resolve_domain_term`, `schema_snapshot`,
+  `refresh_schema`([ADMIN]), `find_related_queries`, `recordar_consulta`, `consultar_memoria`.
+- `resolve_domain_term` traduce lenguaje-negocio ES a canónicos (tabla+tool+trampas). `schema_snapshot` devuelve
+  el esquema desde caché local (`data/schema_snapshot.json`) sin tocar la BD; `refresh_schema` lo reconstruye ([ADMIN], `confirm=True`).
+- `find_related_queries` descubre queries del catálogo afines + otras que tocan la MISMA tabla; `recordar_consulta`/
+  `consultar_memoria` guardan/buscan consultas hechas por usuaria en `data/memoria.json`.
 - `describe_tablas_clave` / `detalle_establecimiento` son tools de CONOCIMIENTO (esquema y JOINs del catálogo),
   no de consulta: `run_query` ejecuta SQL crudo read-only. `detalle_establecimiento` ya hace los JOINs que el
   SQL crudo no sabe (responsable_id→users.name, cliente_facturacion_id→clientes.razon_social, detalle compuesto).

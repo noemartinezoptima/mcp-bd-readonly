@@ -3,6 +3,9 @@ from mcp_bd_readonly.config import load_config
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
 from mcp_bd_readonly.tools_core import build_tools, build_glosario_tools
+from mcp_bd_readonly.esquema_snapshot import build_schema_tools
+from mcp_bd_readonly.catalogo_queries import build_queries_tools
+from mcp_bd_readonly.memoria import build_memoria_tools
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
@@ -36,6 +39,12 @@ def main():
     for fn in build_analisis_tools(executor, audit):
         mcp.tool()(fn)
     for fn in build_meta_tools(cfg, audit):
+        mcp.tool()(fn)
+    for fn in build_schema_tools(executor, audit, cfg.data_dir):
+        mcp.tool()(fn)
+    for fn in build_queries_tools(audit):
+        mcp.tool()(fn)
+    for fn in build_memoria_tools(audit, cfg.data_dir):
         mcp.tool()(fn)
     mcp.tool()(setup_ssh)
     mcp.tool()(leer_excel)
