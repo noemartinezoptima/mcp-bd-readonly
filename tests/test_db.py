@@ -224,12 +224,13 @@ def test_run_py_slices_when_no_sql_limit(monkeypatch):
     assert len(rows) == 2
 
 
-def test_run_no_clamp_on_multistatement(monkeypatch):
+def test_run_rejects_multistatement(monkeypatch):
     ex = make_executor()
     cur = FakeCursor([], ["a"])
     monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
-    ex.run("SELECT 1; SELECT 2", limit=5)
-    assert cur.executed == "SELECT 1; SELECT 2"
+    with pytest.raises(ReadOnlyViolation):
+        ex.run("SELECT 1; SELECT 2", limit=5)
+    assert cur.executed is None
 
 
 def test_describe_escapes_backticks(monkeypatch):
@@ -243,3 +244,67 @@ def test_describe_escapes_backticks(monkeypatch):
     monkeypatch.setattr(ex, "run", fake_run)
     ex.describe("x`; DROP TABLE y; --")
     assert seen == ["DESCRIBE `x``; DROP TABLE y; --`"]
+
+
+def test_run_auto_relanza_tunel_si_conexion_rota(monkeypatch):
+    import mcp_bd_readonly.db as db_mod
+    import pymysql
+
+    ex = make_executor()
+    cur = FakeCursor([{"x": 1}], ["x"])
+
+    state = {"connect_calls": 0, "ensure": 0}
+
+    class FakeTM:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def ensure(self):
+            state["ensure"] += 1
+            return "started"
+
+    def fake_connect(*a, **k):
+        state["connect_calls"] += 1
+        if state["connect_calls"] == 1:
+            raise pymysql.err.OperationalError(2003, "can't connect")
+        return FakeConn(cur)
+
+    monkeypatch.setattr(db_mod.pymysql, "connect", fake_connect)
+    monkeypatch.setattr(db_mod, "TunnelManager", FakeTM)
+
+    cols, rows = ex.run("SELECT x FROM t")
+    assert rows == [{"x": 1}]
+    assert state["ensure"] == 1
+
+
+def test_run_reintenta_select_una_vez_si_conn_se_pierde(monkeypatch):
+    import mcp_bd_readonly.db as db_mod
+    import pymysql
+
+    ex = make_executor()
+    cur = FakeCursor([{"x": 2}], ["x"])
+
+    state = {"ensure": 0}
+
+    class FakeTM:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def ensure(self):
+            state["ensure"] += 1
+            return "ok"
+
+    class FailingCursor(FakeCursor):
+        def execute(self, sql, params=None):
+            if not getattr(self, "boom_done", False):
+                self.boom_done = True
+                raise pymysql.err.OperationalError(2013, "Lost connection")
+            return super().execute(sql, params)
+
+    failing = FailingCursor([{"x": 2}], ["x"])
+    monkeypatch.setattr(db_mod, "TunnelManager", FakeTM)
+    monkeypatch.setattr(ex, "_connect", lambda: FakeConn(failing))
+
+    cols, rows = ex.run("SELECT x FROM t")
+    assert rows == [{"x": 2}]
+    assert state["ensure"] == 1

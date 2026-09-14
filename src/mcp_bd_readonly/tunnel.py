@@ -37,6 +37,8 @@ class TunnelManager:
                     "ssh",
                     "-o", "BatchMode=yes",
                     "-o", "ExitOnForwardFailure=yes",
+                    "-o", "ServerAliveInterval=15",
+                    "-o", "ServerAliveCountMax=3",
                     "-N", "-L", local,
                     host_key,
                 ],

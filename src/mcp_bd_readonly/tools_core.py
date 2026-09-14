@@ -26,9 +26,16 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         _, rows = executor.run(f"DESCRIBE {_quote_id(table)}", limit=None)
         return rows
 
-    def run_query(query: str, limit: int = 100) -> dict:
-        """SQL solo-lectura; devuelve {columns, rows} (JSON). limit clamp filas (default 100; 0=sólo conteo, None=todo)."""
+    def run_query(query: str, limit: int | None = 100) -> dict:
+        """SQL solo-lectura; devuelve {columns, rows} (JSON). limit = nº máximo de filas (default 100); None = todo.
+        limit 0 o negativo NO es válido: para contar usa una query con COUNT(*)."""
         audit and audit.record("run_query", "mcp", query)
+        if limit is not None:
+            if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+                raise ValueError(
+                    "run_query: limit debe ser None (todas las filas) o un entero >= 1. "
+                    f"Recibido {limit!r}. Para contar usa una query con COUNT(*)."
+                )
         from mcp_bd_readonly.dbutils import shape_rows
         return shape_rows(executor.run(query, limit=limit))
 

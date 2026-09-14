@@ -21,13 +21,20 @@ def _strip_leading_comments(stmt: str) -> str:
 
 
 def is_read_only(sql: str) -> bool:
-    for s in _split_statements(sql):
-        stripped = _strip_leading_comments(s)
-        if FORBIDDEN_FIRST.search(stripped):
-            return False
-    return True
+    stmts = _split_statements(sql)
+    if len(stmts) == 0:
+        return False
+    if len(stmts) > 1:
+        return False
+    stripped = _strip_leading_comments(stmts[0])
+    return not FORBIDDEN_FIRST.search(stripped)
 
 
 def enforce_read_only(sql: str) -> None:
     if not is_read_only(sql):
+        stmts = _split_statements(sql)
+        if len(stmts) > 1:
+            raise ReadOnlyViolation(
+                "Solo se permite UNA sentencia; ';' separa sentencias múltiples y no se ejecutan."
+            )
         raise ReadOnlyViolation(sql)

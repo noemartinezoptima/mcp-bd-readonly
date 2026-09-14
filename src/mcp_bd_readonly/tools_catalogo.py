@@ -37,6 +37,10 @@ def describe_tablas_clave(ex: QueryExecutor, tablas=None) -> dict:
 
 
 def _filter_establecimiento(ex: QueryExecutor, termino: str, max_n: int = 50, offset: int = 0) -> tuple[int, list[dict]]:
+    if not isinstance(max_n, int) or isinstance(max_n, bool) or max_n < 1:
+        raise ValueError(f"_filter_establecimiento: max_n debe ser entero >= 1 (recibido {max_n!r})")
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        raise ValueError(f"_filter_establecimiento: offset debe ser entero >= 0 (recibido {offset!r})")
     p = f"%{termino}%"
     where = (
         "FROM establecimientos e "

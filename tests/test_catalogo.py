@@ -135,3 +135,21 @@ def test_detalle_establecimiento_filtra_nulos():
     assert "deleted_at IS NULL" in ex.sql
     assert "LEFT JOIN users" in ex.sql
     assert "LEFT JOIN clientes" in ex.sql
+
+
+def test_detalle_establecimiento_valida_max_n_y_offset():
+    from mcp_bd_readonly.tools_catalogo import detalle_establecimiento
+    import pytest
+
+    class FakeExRows:
+        def run(self, sql, params=None, limit=100):
+            return ["n"], [{"n": 0}]
+
+    for bad_max in (0, -1, True):
+        with pytest.raises(ValueError) as ei:
+            detalle_establecimiento(FakeExRows(), "x", max_n=bad_max)
+        assert "max_n" in str(ei.value)
+    for bad_off in (-1, -5):
+        with pytest.raises(ValueError) as ei:
+            detalle_establecimiento(FakeExRows(), "x", offset=bad_off)
+        assert "offset" in str(ei.value)
