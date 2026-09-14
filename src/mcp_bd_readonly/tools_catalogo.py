@@ -36,8 +36,15 @@ def describe_tablas_clave(ex: QueryExecutor, tablas=None) -> dict:
     return out
 
 
-def _filter_establecimiento(ex: QueryExecutor, termino: str) -> list[dict]:
+def _filter_establecimiento(ex: QueryExecutor, termino: str, max_n: int = 50, offset: int = 0) -> tuple[int, list[dict]]:
     p = f"%{termino}%"
+    where = (
+        "FROM establecimientos e "
+        "WHERE e.deleted_at IS NULL "
+        "AND (e.nombre LIKE %s OR e.codigo LIKE %s OR e.correo LIKE %s OR e.telefono LIKE %s)"
+    )
+    _, cnt = ex.run(f"SELECT COUNT(*) AS n {where}", [p, p, p, p], limit=None)
+    n_total = int(cnt[0]["n"]) if cnt else 0
     sql = (
         "SELECT e.id, e.nombre, e.codigo, e.telefono, e.correo, e.direccion_1, "
         "e.provincia, e.poblacion, e.codigo_postal, e.observaciones, "
@@ -47,14 +54,14 @@ def _filter_establecimiento(ex: QueryExecutor, termino: str) -> list[dict]:
         "LEFT JOIN clientes c ON c.id = e.cliente_facturacion_id "
         "WHERE e.deleted_at IS NULL "
         "AND (e.nombre LIKE %s OR e.codigo LIKE %s OR e.correo LIKE %s OR e.telefono LIKE %s) "
-        "ORDER BY e.nombre"
+        "ORDER BY e.nombre LIMIT %s OFFSET %s"
     )
-    _, rows = ex.run(sql, [p, p, p, p], limit=50)
-    return rows
+    _, rows = ex.run(sql, [p, p, p, p, int(max_n), int(offset)], limit=None)
+    return n_total, rows
 
 
-def detalle_establecimiento(ex: QueryExecutor, termino: str) -> dict:
-    rows = _filter_establecimiento(ex, termino)
+def detalle_establecimiento(ex: QueryExecutor, termino: str, max_n: int = 50, offset: int = 0) -> dict:
+    n_total, rows = _filter_establecimiento(ex, termino, max_n, offset)
     establecimientos = []
     for r in rows:
         establecimientos.append({
@@ -69,7 +76,8 @@ def detalle_establecimiento(ex: QueryExecutor, termino: str) -> dict:
             "responsable": r["responsable"],
             "cliente": r["cliente"],
         })
-    return {"termino": termino, "n_encontrados": len(establecimientos), "establecimientos": establecimientos}
+    return {"termino": termino, "n_encontrados": n_total, "devueltos": len(establecimientos),
+            "offset": int(offset), "max_n": int(max_n), "establecimientos": establecimientos}
 
 
 def build_catalogo_tools(executor: QueryExecutor, audit: AuditLogger):
@@ -86,9 +94,9 @@ def build_catalogo_tools(executor: QueryExecutor, audit: AuditLogger):
         audit and audit.record("describe_tablas_clave", "mcp", "describe_tablas_clave")
         return describe_tablas_clave(executor, tablas)
 
-    @_tool("detalle_establecimiento", "Detalle y responsable de establecimientos que coinciden con un texto (nombre, codigo, correo o telefono). Usa users.name como responsable y clientes.razon_social como cliente. NUNCA escribe: solo SELECT.")
-    def tool_detalle_establecimiento(termino: str) -> dict:
-        audit and audit.record("detalle_establecimiento", "mcp", f"detalle_establecimiento({termino})")
-        return detalle_establecimiento(executor, termino)
+    @_tool("detalle_establecimiento", "Detalle y responsable de establecimientos que coinciden con un texto (nombre, codigo, correo o telefono). Usa users.name como responsable y clientes.razon_social como cliente. Paginable: max_n (filas, default 50) + offset (desplazamiento, default 0); n_encontrados = TOTAL de coincidencias, no la página. Cuando n_encontrados > max_n, ofrece al usuario paginar con offset y/o exportar los resultados (reconciliar_excel_bd/leer_excel pueden volcar a Excel). NUNCA escribe: solo SELECT.")
+    def tool_detalle_establecimiento(termino: str, max_n: int = 50, offset: int = 0) -> dict:
+        audit and audit.record("detalle_establecimiento", "mcp", f"detalle_establecimiento({termino}, max_n={max_n}, offset={offset})")
+        return detalle_establecimiento(executor, termino, max_n, offset)
 
     return [tool_describe_tablas_clave, tool_detalle_establecimiento]
