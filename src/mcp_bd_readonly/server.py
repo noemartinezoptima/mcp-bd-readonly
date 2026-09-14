@@ -2,7 +2,7 @@ from fastmcp import FastMCP
 from mcp_bd_readonly.config import load_config
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
-from mcp_bd_readonly.tools_core import build_tools
+from mcp_bd_readonly.tools_core import build_tools, build_glosario_tools
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
@@ -24,6 +24,8 @@ def main():
     audit = AuditLogger(cfg.data_dir)
     mcp = FastMCP("mcp-optima-bd", instructions="MCP Optima BD — acceso SOLO-LECTURA a la BD de Optima (back): facturas, OT, cobros, remesas, establecimientos. Guard read-only: jamás ejecuta INSERT/UPDATE/DELETE/DDL. Consulta en lenguaje natural; usa run_query o las tools del catálogo.")
     for fn in build_tools(executor, audit):
+        mcp.tool()(fn)
+    for fn in build_glosario_tools(audit):
         mcp.tool()(fn)
     for fn in build_finanzas_tools(executor, audit):
         mcp.tool()(fn)

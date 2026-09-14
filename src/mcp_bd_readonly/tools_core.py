@@ -1,5 +1,6 @@
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
+from mcp_bd_readonly.glosario import resolver as _resolver_dominio
 
 def _quote_id(name: str) -> str:
     return "`" + name.replace("`", "``") + "`"
@@ -32,3 +33,20 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         return shape_rows(executor.run(query, limit=limit))
 
     return [list_databases, list_tables, describe_table, run_query]
+
+
+def build_glosario_tools(audit: AuditLogger):
+
+    def _tool(name, doc):
+        def wrap(fn):
+            fn.__name__ = name
+            fn.__doc__ = doc
+            return fn
+        return wrap
+
+    @_tool("resolve_domain_term", "Mapea una frase de negocio en español a términos canónicos del catálogo Optima (tabla + herramienta MCP + trampas). Llamar para desambiguar antes de elegir query.")
+    def tool_resolve_domain_term(texto: str) -> dict:
+        audit and audit.record("resolve_domain_term", "mcp", f"resolve_domain_term({texto})")
+        return _resolver_dominio(texto)
+
+    return [tool_resolve_domain_term]
