@@ -1,6 +1,6 @@
-# Conexión de clientes al servidor MCP `mcp-bd-readonly`
+# Conexión de clientes al servidor MCP `mcp-optima-bd`
 
-Servidor: stdio, comando `.venv/bin/mcp-bd-readonly` dentro del repo `mcp-bd-readonly/` (Windows: `.venv\Scripts\mcp-bd-readonly.exe`, ver `SETUP-WINDOWS.md`).
+Servidor: stdio, comando `.venv/bin/mcp-optima-bd` dentro del repo `mcp-bd-readonly/` (Windows: `.venv\Scripts\mcp-optima-bd.exe`, ver `SETUP-WINDOWS.md`).
 Requisito previo: túnel SSH activo (`scripts/tunnel.sh`, puerto local 13306 → MySQL remoto 3306; en Windows `scripts/tunnel.ps1`) y
 credenciales en `~/.zt-readonly.env` (modo 600). Las variables de entorno `MYSQL_*`/`DATA_DIR` sobreescriben al archivo.
 
@@ -13,9 +13,9 @@ Ya configurado globalmente en `~/.config/opencode/opencode.jsonc`:
 
 ```jsonc
 "mcp": {
-  "mcp-bd-readonly": {
+  "mcp-optima-bd": {
     "type": "local",
-    "command": ["/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-bd-readonly"],
+    "command": ["/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-optima-bd"],
     "enabled": true,
     "timeout": 60000
   }
@@ -27,9 +27,9 @@ que ya tiene las variables cargadas no necesitas `env`. Opcional: para forzar va
 
 ```jsonc
 "mcp": {
-  "mcp-bd-readonly": {
+  "mcp-optima-bd": {
     "type": "local",
-    "command": ["/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-bd-readonly"],
+    "command": ["/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-optima-bd"],
     "enabled": true,
     "timeout": 60000,
     "env": {
@@ -51,8 +51,8 @@ que ya tiene las variables cargadas no necesitas `env`. Opcional: para forzar va
 ```json
 {
   "mcpServers": {
-    "mcp-bd-readonly": {
-      "command": "/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-bd-readonly",
+    "mcp-optima-bd": {
+      "command": "/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-optima-bd",
       "args": [],
       "env": {
         "MYSQL_HOST": "127.0.0.1",
@@ -73,8 +73,8 @@ que ya tiene las variables cargadas no necesitas `env`. Opcional: para forzar va
 ```json
 {
   "mcpServers": {
-    "mcp-bd-readonly": {
-      "command": "/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-bd-readonly",
+    "mcp-optima-bd": {
+      "command": "/Volumes/CORSAIR/Proyectos/ZeroCoolNetwork/mcp-bd-readonly/.venv/bin/mcp-optima-bd",
       "args": [],
       "env": {
         "MYSQL_HOST": "127.0.0.1",

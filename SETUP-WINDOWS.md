@@ -1,4 +1,4 @@
-# Setup de `mcp-bd-readonly` en Windows (con Claude)
+# Setup de `mcp-optima-bd` en Windows (con Claude)
 
 Servidor MCP de solo lectura sobre MySQL `back`. **Independiente**: no requiere
 `zero-teams-mcp` (Azure Teams) ni ningún otro MCP; es un módulo autocontenido.
@@ -28,7 +28,7 @@ py -m venv .venv
 .venv\Scripts\python -m pip install -e .
 ```
 
-Criterio: existe `.venv\Scripts\mcp-bd-readonly.exe`.
+Criterio: existe `.venv\Scripts\mcp-optima-bd.exe`.
 
 ## Paso 1.5 — LibreOffice (recálculo de fórmulas Excel)
 
@@ -114,8 +114,8 @@ Criterio: en otra ventana, `Test-NetConnection 127.0.0.1 -Port 13306` →
 ```json
 {
   "mcpServers": {
-    "mcp-bd-readonly": {
-      "command": "C:\\ruta\\a\\mcp-bd-readonly\\.venv\\Scripts\\mcp-bd-readonly.exe",
+    "mcp-optima-bd": {
+      "command": "C:\\ruta\\a\\mcp-bd-readonly\\.venv\\Scripts\\mcp-optima-bd.exe",
       "args": []
     }
   }
@@ -128,10 +128,10 @@ recomendado) poner `MYSQL_PASSWORD` en el config JSON.
 ### Claude Code (CLI)
 
 ```powershell
-claude mcp add mcp-bd-readonly -- C:\ruta\a\mcp-bd-readonly\.venv\Scripts\mcp-bd-readonly.exe
+claude mcp add mcp-optima-bd -- C:\ruta\a\mcp-bd-readonly\.venv\Scripts\mcp-optima-bd.exe
 ```
 
-Criterio: `claude mcp list` muestra `mcp-bd-readonly` (health `connected`).
+Criterio: `claude mcp list` muestra `mcp-optima-bd` (health `connected`).
 
 ## Paso 5 — Verificación
 

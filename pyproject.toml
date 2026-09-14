@@ -1,7 +1,7 @@
 [project]
-name = "mcp-bd-readonly"
+name = "mcp-optima-bd"
 version = "0.1.0"
-description = "Read-only MySQL MCP server for finance + audit queries"
+description = "MCP Optima BD — servidor MySQL SOLO-LECTURA para consultas de finanzas, OT y establecimientos"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=1.0,<2",
@@ -14,7 +14,7 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-mcp-bd-readonly = "mcp_bd_readonly.server:main"
+mcp-optima-bd = "mcp_bd_readonly.server:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -1,4 +1,4 @@
-# SPEC — Mejora de `mcp-bd-readonly` para análisis financiero avanzado
+# SPEC — Mejora de `mcp-optima-bd` para análisis financiero avanzado
 
 Autor: zerocool · Estado: **propuesto** · Fecha: 2026-09-10
 

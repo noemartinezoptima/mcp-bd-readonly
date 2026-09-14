@@ -1,4 +1,6 @@
-# mcp-bd-readonly
+# mcp-optima-bd  (antes mcp-bd-readonly)
+
+Servidor MCP SOLO-LECTURA sobre la BD de Optima (`back`). Nombre público nuevo: **mcp-optima-bd**; la carpeta del repo conserva el nombre antiguo para no romper rutas de config.
 
 Servidor MCP (Model Context Protocol) de solo lectura sobre una base de datos MySQL (esquema `back`). Expone herramientas para consultas de inventario/facturación sin ningún acceso de escritura.
 
@@ -28,7 +30,7 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
   ```
   No se invalida si el archivo no existe; las variables de entorno `MYSQL_*`/`DATA_DIR`/`TUNNEL_HOST` ganan sobre el archivo. En Windows el archivo cae en `%USERPROFILE%\.zt-readonly.env`.
 
-**Soporte Windows**: el código es portable (pathlib + pymysql + os.environ, sin rutas Unix). Diferencias: entry point en `.venv\Scripts\mcp-bd-readonly.exe`, túnel con `scripts/tunnel.ps1`. Instrucción completa para Claude en [`SETUP-WINDOWS.md`](SETUP-WINDOWS.md).
+**Soporte Windows**: el código es portable (pathlib + pymysql + os.environ, sin rutas Unix). Diferencias: entry point en `.venv\Scripts\mcp-optima-bd.exe`, túnel con `scripts/tunnel.ps1`. Instrucción completa para Claude en [`SETUP-WINDOWS.md`](SETUP-WINDOWS.md).
 
 ## Uso
 
@@ -40,8 +42,8 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
 
 1. Ejecutar el servidor MCP (stdio). **El túnel SSH se gestiona solo**: si `127.0.0.1:13306` no responde, el MCP lanza `ssh -N -L 13306:127.0.0.1:3306 db-host` como subproceso y lo cierra al terminar:
    ```bash
-   .venv/bin/mcp-bd-readonly                # macOS/Linux
-   .venv\Scripts\mcp-bd-readonly.exe        # Windows
+   .venv/bin/mcp-optima-bd                # macOS/Linux
+   .venv\Scripts\mcp-optima-bd.exe        # Windows
    ```
    Para arranque manual previo del túnel (opcional, si quieres voz propia sobre la conexión):
    ```bash

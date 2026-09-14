@@ -22,7 +22,7 @@ def main():
         print(f"TUNNEL ERROR: {state}", file=__import__("sys").stderr)
     executor = QueryExecutor(cfg)
     audit = AuditLogger(cfg.data_dir)
-    mcp = FastMCP("mcp-bd-readonly")
+    mcp = FastMCP("mcp-optima-bd", instructions="MCP Optima BD — acceso SOLO-LECTURA a la BD de Optima (back): facturas, OT, cobros, remesas, establecimientos. Guard read-only: jamás ejecuta INSERT/UPDATE/DELETE/DDL. Consulta en lenguaje natural; usa run_query o las tools del catálogo.")
     for fn in build_tools(executor, audit):
         mcp.tool()(fn)
     for fn in build_finanzas_tools(executor, audit):

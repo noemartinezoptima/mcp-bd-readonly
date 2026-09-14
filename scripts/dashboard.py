@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dashboard web local de mcp-bd-readonly: estado del MCP, túnel y motor Excel.
+"""Dashboard web local de mcp-optima-bd: estado del MCP, túnel y motor Excel.
 
 Uso:
     python scripts/dashboard.py            # puerto 5180 (o PORT=xxxx)
@@ -21,9 +21,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VENV_BIN = ROOT / ".venv" / "bin" / "mcp-bd-readonly"
+VENV_BIN = ROOT / ".venv" / "bin" / "mcp-optima-bd"
 if not VENV_BIN.exists():  # Windows
-    VENV_BIN = ROOT / ".venv" / "Scripts" / "mcp-bd-readonly.exe"
+    VENV_BIN = ROOT / ".venv" / "Scripts" / "mcp-optima-bd.exe"
 PORT = int(os.environ.get("PORT", "5180"))
 TUNNEL_HOST = os.environ.get("TUNNEL_HOST", "optimaback-active")
 LOCAL = ("127.0.0.1", 13306)
@@ -47,7 +47,7 @@ def ssh_pids() -> list[int]:
 
 def mcp_processes() -> int:
     try:
-        out = subprocess.run(["pgrep", "-f", "mcp-bd-readonly"], capture_output=True,
+        out = subprocess.run(["pgrep", "-f", "mcp-optima-bd"], capture_output=True,
                              text=True, timeout=5).stdout
         return len([x for x in out.split() if x.strip()])
     except Exception:
@@ -115,7 +115,7 @@ def conn_log_tail(lines: int = 6) -> list[str]:
             f.seek(max(0, size - 200_000))
             tail_b = f.read()
         for line in tail_b.decode("utf-8", "replace").splitlines():
-            if "mcp-bd-readonly" in line or "MCP connection closed" in line:
+            if "mcp-optima-bd" in line or "MCP connection closed" in line:
                 hits.append(line[:220])
         return hits[-lines:]
     except Exception as e:
