@@ -38,6 +38,12 @@ QUERIES = [
     {"id": "B10", "nombre": "Detalle/responsable establecimiento", "tabla": "establecimientos",
      "topicos": ["establecimiento", "tienda", "responsable", "detalle", "cliente tienda"],
      "sql": "responsable_id->users.name, cliente=clientes.razon_social"},
+    {"id": "B11", "nombre": "Gastos por tipo", "tabla": "facturas_compra",
+     "topicos": ["gasto", "gastos", "compra", "proveedor", "tipo", "coste", "costes", "categoria"],
+     "sql": "facturas_compra GROUP BY tipo_gasto_id (JOIN tipos_de_gasto); usar total_coste_euros"},
+    {"id": "B12", "nombre": "Margen bruto", "tabla": "facturas_venta + facturas_compra",
+     "topicos": ["margen", "beneficio", "ganancia", "rentabilidad", "resultado"],
+     "sql": "ventas total_euros − compras total_coste_euros (coste_directo=1) mismo rango"},
 ]
 
 

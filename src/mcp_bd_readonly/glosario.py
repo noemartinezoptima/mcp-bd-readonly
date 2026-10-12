@@ -36,6 +36,13 @@ SINONIMOS = {
     "cliente": [
         "cliente", "clientes", "razón social",
     ],
+    "facturas_compra": [
+        "gasto", "gastos", "compra", "compras", "comprado", "proveedor", "proveedores",
+        "subcontrata", "subcontratado", "subcontratación",
+    ],
+    "margen": [
+        "margen", "beneficio", "ganancia", "rentabilidad", "resultado",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -106,6 +113,28 @@ CANONICOS_INFO = {
             "nombre_comercial puede diferir de la razon social.",
         ],
     },
+    "facturas_compra": {
+        "tabla": "facturas_compra",
+        "herramienta_mcp": "facturas_compra",
+        "nota_uso": ("Gastos/compras. Dinero en base_euros/iva_euros/total_euros/total_coste_euros "
+                     "(aquí base_euros SÍ existe). coste_directo=1 es coste directo (COGS), 0 es indirecto. "
+                     "proveedor_nombre viene denormalizado; proveedor_id -> proveedores. pagada=0 pendiente, 1 pagada."),
+        "trampas": [
+            "Gastos viven en facturas_compra, NO en facturas_venta.",
+            "Fecha de pago = fecha_pago (aquí SÍ, distinto a efectos_pago.fecha_pagado).",
+            "Hay basura de fechas (ej. 1921): filtrar SIEMPRE por rango.",
+        ],
+    },
+    "margen": {
+        "tabla": "facturas_venta + facturas_compra (coste_directo=1)",
+        "herramienta_mcp": "margen",
+        "nota_uso": ("Margen bruto = SUM(facturas_venta.total_euros) − SUM(facturas_compra.total_coste_euros "
+                     "WHERE coste_directo=1) en el mismo rango de fechas."),
+        "trampas": [
+            "Usar total_coste_euros (no base_euros) para el coste directo.",
+            "Mismo rango de fechas en ventas y compras; si no, el margen no cuadra.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -116,6 +145,8 @@ _ESPECIFICIDAD = {
     "ots": 3,
     "responsable": 2,
     "cliente": 1,
+    "facturas_compra": 5,
+    "margen": 4,
 }
 
 
