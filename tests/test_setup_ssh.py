@@ -51,6 +51,26 @@ class TestSetupSsh(unittest.TestCase):
         assert not os.path.exists(os.path.join(self.home, ".ssh", "id_ed25519"))
         assert not os.path.exists(os.path.join(self.home, ".ssh"))
 
+    def test_dynamic_host_user_and_key(self):
+        key = os.path.join(self.home, "custom_ed25519")
+        r = tools_setup.setup_ssh(
+            email="x@y.z",
+            confirmar=True,
+            host="mi-host",
+            hostname="10.0.0.5",
+            user="deploy",
+            key_path=key,
+        )
+        assert r["ok"] is True
+        assert r["host"] == "mi-host"
+        assert r["hostname"] == "10.0.0.5"
+        assert os.path.exists(key)
+        cfg = open(os.path.join(self.home, ".ssh", "config"), encoding="utf-8").read()
+        assert "Host mi-host" in cfg
+        assert "HostName 10.0.0.5" in cfg
+        assert "User deploy" in cfg
+        assert "IdentityFile " + key in cfg
+
 
 if __name__ == "__main__":
     unittest.main()
