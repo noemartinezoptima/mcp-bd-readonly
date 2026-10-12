@@ -50,6 +50,9 @@ QUERIES = [
     {"id": "B14", "nombre": "Stock actual", "tabla": "stock_movements + stock_articles",
      "topicos": ["stock", "inventario", "existencia", "articulo", "almacen", "producto"],
      "sql": "último resulting_stock por (article_id, location_id) — tool stock_actual"},
+    {"id": "B15", "nombre": "Balance de situación", "tabla": "accounting_entry_lines + accounting_accounts",
+     "topicos": ["balance", "activo", "pasivo", "patrimonio", "hoja de balance"],
+     "sql": "saldo debe-haber por cuenta, clasificado por pgc_group — tool balance"},
 ]
 
 

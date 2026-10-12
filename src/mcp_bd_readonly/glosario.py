@@ -51,6 +51,10 @@ SINONIMOS = {
         "stock", "inventario", "existencia", "existencias", "artículo", "articulo",
         "articulos", "almacen", "almacén", "producto", "productos",
     ],
+    "balance": [
+        "balance", "hoja de balance", "activo", "pasivo", "patrimonio",
+        "patrimonio neto", "situación", "situacion",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -164,6 +168,16 @@ CANONICOS_INFO = {
             "Ubicaciones típicas: Interno / Externo / Material defectuoso / OPTIMA RETAIL.",
         ],
     },
+    "balance": {
+        "tabla": "accounting_entry_lines + accounting_accounts",
+        "herramienta_mcp": "balance",
+        "nota_uso": ("Balance de situación desde contabilidad PGC: saldo (debe−haber) por cuenta, "
+                     "clasificado en activo/pasivo/patrimonio/ingreso/gasto. Cuadra: activo − (pasivo+patrimonio) = resultado."),
+        "trampas": [
+            "balance_nature está vacío en la BD: se clasifica por pgc_group (subgrupo PGC).",
+            "Grupo 3 (existencias) está vacío en esta contabilidad.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -178,6 +192,7 @@ _ESPECIFICIDAD = {
     "margen": 4,
     "pnl": 4,
     "stock": 5,
+    "balance": 5,
 }
 
 
