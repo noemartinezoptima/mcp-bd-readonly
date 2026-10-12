@@ -13,6 +13,7 @@ from mcp_bd_readonly.tools_analisis import build_analisis_tools
 from mcp_bd_readonly.tools_meta import build_meta_tools
 from mcp_bd_readonly.tunnel import TunnelManager
 from mcp_bd_readonly.tools_setup import setup_ssh
+from mcp_bd_readonly.agente import detectar_agente
 from mcp_bd_readonly.tools_excel import (
     check_excel_capabilities, leer_excel, resumen_excel, reconciliar_excel_bd,
 )
@@ -47,6 +48,7 @@ def main():
     for fn in build_memoria_tools(audit, cfg.data_dir):
         mcp.tool()(fn)
     mcp.tool()(setup_ssh)
+    mcp.tool()(detectar_agente)
     mcp.tool()(leer_excel)
     mcp.tool()(check_excel_capabilities)
     mcp.tool()(resumen_excel)
