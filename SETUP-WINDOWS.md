@@ -1,4 +1,4 @@
-# Setup de `mcp-bd-readonly` en Windows (con Claude)
+# Setup de `mcp-optima-bd` en Windows (con Claude)
 
 Servidor MCP de solo lectura sobre MySQL `back`. **Independiente**: no requiere
 `zero-teams-mcp` (Azure Teams) ni ningún otro MCP; es un módulo autocontenido.
@@ -6,6 +6,21 @@ Servidor MCP de solo lectura sobre MySQL `back`. **Independiente**: no requiere
 Stack: Python 3.10+, `fastmcp` + `pymysql`. Código 100% portable (sin rutas Unix
 hardcodeadas; usa `pathlib` + `os.environ`). Solo difieren en Windows: la ruta del
 venv (`Scripts` en vez de `bin`) y el túnel SSH (`tunnel.ps1` en vez de `tunnel.sh`).
+
+---
+
+## Vía rápida — wizard (recomendado)
+
+Automatiza los Pasos 2–4 (credenciales + registro en agentes) en un solo comando:
+
+```powershell
+pwsh scripts\setup.ps1
+```
+
+Genera clave SSH ed25519 (si falta) + bloque `~/.ssh/config`, pide credenciales MySQL
+y escribe `%USERPROFILE%\.zt-readonly.env`, registra el MCP en Claude Code / OpenCode /
+Cursor / Claude Desktop, y verifica `SELECT 1`. Los Pasos 0–1.5 siguen siendo manuales
+(prerrequisitos + venv + LibreOffice).
 
 ---
 
@@ -28,7 +43,51 @@ py -m venv .venv
 .venv\Scripts\python -m pip install -e .
 ```
 
-Criterio: existe `.venv\Scripts\mcp-bd-readonly.exe`.
+Criterio: existe `.venv\Scripts\mcp-optima-bd.exe`.
+
+## Paso 1.5 — LibreOffice (recálculo de fórmulas Excel)
+
+`leer_excel` solo puede evaluar fórmulas *dinámicas* (SEQUENCE, FILTER, arrays)
+realmente si hay un motor de cálculo con LibreOffice. Sin él, el fallback es
+`formualizer` (sin arrays dinámicos) o valores cached.
+
+Instalar (PowerShell, una de estas dos):
+
+```powershell
+winget install --id TheDocumentFoundation.LibreOffice -e
+# o, vía winget CLI directa:
+winget install TheDocumentFoundation.LibreOffice
+```
+
+Ruta esperada: `C:\Program Files\LibreOffice\program\soffice.exe`
+(variante x86 en `C:\Program Files (x86)\LibreOffice\program\soffice.exe`).
+
+Criterio: `& "C:\Program Files\LibreOffice\program\soffice.exe" --version` devuelve
+una línea `LibreOffice x.y`.
+
+Si no quieres instalar nada, el server sigue funcionando (estrategia automática
+`formualizer` o `cached_only`), pero las fórmulas bypasses de recálculo completo
+pueden reportarse como error.
+
+### Permiso para que Claude instale/verifique LibreOffice
+
+Claude Code pedirá permiso para ejecutar winget. Añadir al `.claude/settings.json`
+o `settings.local.json` del proyecto:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget install TheDocumentFoundation.LibreOffice)",
+      "Bash(winget install -e --id TheDocumentFoundation.LibreOffice *)",
+      "Bash(& \"C:\\Program Files\\LibreOffice\\program\\soffice.exe\" --version)"
+    ]
+  }
+}
+```
+
+(En macOS el equivalente ya está permitido: `Bash(brew install --cask libreoffice)`,
+la ruta es `/Applications/LibreOffice.app/Contents/MacOS/soffice`.)
 
 ## Paso 2 — Credenciales
 
@@ -70,8 +129,8 @@ Criterio: en otra ventana, `Test-NetConnection 127.0.0.1 -Port 13306` →
 ```json
 {
   "mcpServers": {
-    "mcp-bd-readonly": {
-      "command": "C:\\ruta\\a\\mcp-bd-readonly\\.venv\\Scripts\\mcp-bd-readonly.exe",
+    "mcp-optima-bd": {
+      "command": "C:\\ruta\\a\\mcp-bd-readonly\\.venv\\Scripts\\mcp-optima-bd.exe",
       "args": []
     }
   }
@@ -84,18 +143,20 @@ recomendado) poner `MYSQL_PASSWORD` en el config JSON.
 ### Claude Code (CLI)
 
 ```powershell
-claude mcp add mcp-bd-readonly -- C:\ruta\a\mcp-bd-readonly\.venv\Scripts\mcp-bd-readonly.exe
+claude mcp add mcp-optima-bd -- C:\ruta\a\mcp-bd-readonly\.venv\Scripts\mcp-optima-bd.exe
 ```
 
-Criterio: `claude mcp list` muestra `mcp-bd-readonly` (health `connected`).
+Criterio: `claude mcp list` muestra `mcp-optima-bd` (health `connected`).
 
 ## Paso 5 — Verificación
 
 En Claude, pedir:
 
-- "lista las herramientas de mcp-bd-readonly" → 12 tools
+- "lista las herramientas de mcp-bd-readonly" → 16 tools
 - `run_query` con `SELECT COUNT(*) FROM facturas_venta` → devuelve un número
 - `resumen_iva(2, 2026)` → objeto con `base_es`/`iva_es`/`total_es`
+- `check_excel_capabilities` → `strategy` = `libreoffice` (si se instaló en 1.5), `formualizer` o `cached_only`
+- `leer_excel("C:\\ruta\\a\\libro.xlsx", force_recalc=True)` → celdas con fórmula `f` + valor calculado `v`
 - cualquier `UPDATE`/DML → error de solo lectura (barrera #1 parser; barrera #2 = usuario MySQL `back_readonly` con GRANT SELECT)
 
 Criterio: `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN SELECT`, `WITH`(CTE), subqueries, `UNION`,

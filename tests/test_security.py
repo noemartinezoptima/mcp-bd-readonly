@@ -42,3 +42,17 @@ def test_allows_read_commands(ok):
 def test_rejects_dml(bad):
     with pytest.raises(ReadOnlyViolation):
         enforce_read_only(bad)
+
+
+@pytest.mark.parametrize("bad", [
+    "SELECT 1; SELECT 2",
+    "SELECT 1;\nSELECT 2",
+    "SHOW TABLES; SELECT 1",
+])
+def test_rejects_multi_statement(bad):
+    with pytest.raises(ReadOnlyViolation):
+        enforce_read_only(bad)
+
+
+def test_allows_single_statement_trailing_semicolon():
+    enforce_read_only("SELECT 1;")

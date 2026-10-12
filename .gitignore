@@ -8,3 +8,7 @@ data/
 *.egg-info/
 
 .superpowers/
+
+# Artefactos locales NO versionables (evitar filtración en repo público)
+.engineering-os/
+CLARIFICACIONES-DPO.xlsx

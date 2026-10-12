@@ -4,27 +4,28 @@ import subprocess
 HOST = os.environ.get("SSH_HOST", "db-host")
 HOST_NAME = os.environ.get("SSH_HOSTNAME", "db-host.example.com")
 USER = os.environ.get("SSH_USER", "forge")
+DEFAULT_KEY = os.environ.get("SSH_KEY", "~/.ssh/id_ed25519")
 
 
-def _key_path() -> str:
-    return os.path.expanduser("~/.ssh/id_ed25519")
+def _key_path(key_path: str | None = None) -> str:
+    return os.path.expanduser(key_path or DEFAULT_KEY)
 
 
 def _ssh_cfg_path() -> str:
     return os.path.expanduser("~/.ssh/config")
 
 
-def _config_block(key: str) -> str:
-    return f"\nHost {HOST}\n  HostName {HOST_NAME}\n  User {USER}\n  IdentityFile {key}\n"
+def _config_block(key: str, host: str, hostname: str, user: str) -> str:
+    return f"\nHost {host}\n  HostName {hostname}\n  User {user}\n  IdentityFile {key}\n"
 
 
-def _host_configured() -> bool:
+def _host_configured(host: str) -> bool:
     cfg = _ssh_cfg_path()
     if not os.path.exists(cfg):
         return False
     with open(cfg, encoding="utf-8") as f:
         for line in f:
-            if line.strip() == f"Host {HOST}":
+            if line.strip() == f"Host {host}":
                 return True
     return False
 
@@ -39,9 +40,33 @@ def _copy_to_clipboard(text: str) -> bool:
     return False
 
 
-def setup_ssh(email: str | None = None) -> dict:
-    """Prepara SSH para el túnel de BD: genera clave ed25519 si falta, añade el host al config, y devuelve la clave pública lista para Forge."""
-    key = _key_path()
+def setup_ssh(
+    email: str | None = None,
+    confirmar: bool = False,
+    host: str | None = None,
+    hostname: str | None = None,
+    user: str | None = None,
+    key_path: str | None = None,
+) -> dict:
+    """[ADMIN] Prepara SSH para el túnel de BD.
+
+    Genera clave ed25519 si falta (o usa la ruta dada), añade el host a
+    ~/.ssh/config y copia la clave pública al portapapeles. Requiere
+    confirmación explícita: confirmar=True.
+
+    host/hostname/user/key_path son DINÁMICOS: si no se pasan, caen a los
+    defaults (env SSH_HOST/SSH_HOSTNAME/SSH_USER/SSH_KEY o db-host/forge).
+    """
+    if not confirmar:
+        return {
+            "ok": False,
+            "error": "setup_ssh es [ADMIN]: escribe en el sistema (clave SSH + ~/.ssh/config + portapapeles). "
+                     "Rechazada sin confirmación explícita. Pide aprobación al humano y llama con confirmar=True.",
+        }
+    host = host or HOST
+    hostname = hostname or HOST_NAME
+    user = user or USER
+    key = _key_path(key_path)
     cfg = _ssh_cfg_path()
     steps = []
     generated = False
@@ -75,13 +100,13 @@ def setup_ssh(email: str | None = None) -> dict:
         steps.append(f"Clave OK: {key} (ya existía)")
 
     os.makedirs(os.path.dirname(cfg), exist_ok=True)
-    if _host_configured():
-        steps.append(f"Host {HOST} ya definido en {cfg}")
+    if _host_configured(host):
+        steps.append(f"Host {host} ya definido en {cfg}")
     else:
         with open(cfg, "a", encoding="utf-8") as f:
-            f.write(_config_block(key))
+            f.write(_config_block(key, host, hostname, user))
         os.chmod(cfg, 0o600)
-        steps.append(f"Añadido host {HOST} ({HOST_NAME}, user {USER}) a {cfg}")
+        steps.append(f"Añadido host {host} ({hostname}, user {user}) a {cfg}")
 
     with open(key + ".pub", encoding="utf-8") as f:
         public_key = f.read().strip()
@@ -95,9 +120,10 @@ def setup_ssh(email: str | None = None) -> dict:
         "clave_generada": generated,
         "steps": steps,
         "email": bootstrapped_email,
-        "host": HOST,
-        "hostname": HOST_NAME,
+        "host": host,
+        "hostname": hostname,
+        "key": key,
         "clave_publica": public_key,
         "en_portapapeles": copied,
-        "pendiente": f"Añadir la clave pública al servidor ({HOST}): configúralo en el panel del proveedor (Forge u otro), luego prueba: ssh {HOST} 'echo OK'",
+        "pendiente": f"Añadir la clave pública al servidor ({host}): configúralo en el panel del proveedor (Forge u otro), luego prueba: ssh {host} 'echo OK'",
     }

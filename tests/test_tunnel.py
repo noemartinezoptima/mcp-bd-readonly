@@ -90,3 +90,16 @@ def test_ensure_error_when_ssh_missing(monkeypatch):
     s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
     tm = TunnelManager(make_cfg(port))
     assert tm.ensure().startswith("error")
+
+def test_ensure_ssh_uso_serveralive(monkeypatch):
+    spawned = []
+    monkeypatch.setattr("subprocess.Popen", lambda args, **kw: spawned.append(args) or type("P", (), {"poll": lambda s: None, "terminate": lambda s: None, "wait": lambda s, timeout=None: None, "kill": lambda s: None})())
+    monkeypatch.setattr("mcp_bd_readonly.tunnel._port_open", lambda host, port, timeout=2.0: bool(spawned))
+    monkeypatch.setattr("mcp_bd_readonly.tunnel.time.sleep", lambda s: None)
+    s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
+    tm = TunnelManager(make_cfg(port))
+    assert tm.ensure() == "started"
+    args = " ".join(spawned[0])
+    assert "ServerAliveInterval=15" in args
+    assert "ServerAliveCountMax=3" in args
+    tm.close()

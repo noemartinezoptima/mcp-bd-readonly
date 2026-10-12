@@ -1,5 +1,5 @@
 #!/bin/bash
-# setup-ssh.sh — prepara SSH para mcp-bd-readonly
+# setup-ssh.sh — prepara SSH para mcp-optima-bd
 # Uso: bash scripts/setup-ssh.sh   (solo pide email si falta la clave)
 set -euo pipefail
 
