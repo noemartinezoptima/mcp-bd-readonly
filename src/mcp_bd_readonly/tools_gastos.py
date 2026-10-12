@@ -94,30 +94,73 @@ def resumen_gastos_por_tipo(ex, fecha_desde, fecha_hasta):
     return {"por_tipo": out}
 
 
-def margen(ex, fecha_desde, fecha_hasta):
-    """Margen bruto = ventas − costes directos (facturas_compra.coste_directo=1)."""
+def _ventas_netas(ex, fecha_desde, fecha_hasta) -> Decimal:
     _, ventas = ex.run(
-        "SELECT COALESCE(SUM(total_euros),0) t FROM facturas_venta "
-        "WHERE deleted_at IS NULL AND DATE(fecha_factura) BETWEEN %s AND %s",
+        "SELECT COALESCE(SUM(total_euros),0) t, COALESCE(SUM(iva_euros),0) i "
+        "FROM facturas_venta WHERE deleted_at IS NULL "
+        "AND DATE(fecha_factura) BETWEEN %s AND %s",
         [fecha_desde, fecha_hasta], limit=1,
     )
-    _, costes = ex.run(
-        "SELECT COALESCE(SUM(total_coste_euros),0) t FROM facturas_compra "
-        "WHERE deleted_at IS NULL AND coste_directo = 1 AND DATE(fecha_factura) BETWEEN %s AND %s",
-        [fecha_desde, fecha_hasta], limit=1,
+    # neto de IVA (facturas_venta NO tiene base_euros; derivar total − iva)
+    return _dec(ventas[0]["t"]) - _dec(ventas[0]["i"])
+
+
+def _costes_por_tipo(ex, fecha_desde, fecha_hasta) -> tuple[Decimal, Decimal]:
+    _, rows = ex.run(
+        "SELECT coste_directo, COALESCE(SUM(total_coste_euros),0) c "
+        "FROM facturas_compra WHERE deleted_at IS NULL "
+        "AND DATE(fecha_factura) BETWEEN %s AND %s GROUP BY coste_directo",
+        [fecha_desde, fecha_hasta], limit=None,
     )
-    v = _dec(ventas[0]["t"])
-    c = _dec(costes[0]["t"])
+    directos = Decimal("0")
+    indirectos = Decimal("0")
+    for r in rows:
+        if r["coste_directo"] == 1:
+            directos = _dec(r["c"])
+        else:
+            indirectos = _dec(r["c"])
+    return directos, indirectos
+
+
+def margen(ex, fecha_desde, fecha_hasta):
+    """Margen bruto = ventas netas (ex-IVA) − costes directos (coste_directo=1)."""
+    v = _ventas_netas(ex, fecha_desde, fecha_hasta)
+    c, _ = _costes_por_tipo(ex, fecha_desde, fecha_hasta)
     m = v - c
     pct = (m / v * 100).quantize(Decimal("0.1")) if v else None
     return {
-        "ventas": v,
-        "ventas_es": fmt_money(v),
+        "ventas_netas": v,
+        "ventas_netas_es": fmt_money(v),
         "costes_directos": c,
         "costes_directos_es": fmt_money(c),
         "margen": m,
         "margen_es": fmt_money(m),
         "margen_pct": float(pct) if pct is not None else None,
+    }
+
+
+def pnl(ex, fecha_desde, fecha_hasta):
+    """Cuenta de resultados (P&L) simplificada:
+    ingresos netos → costes directos → margen bruto → costes indirectos → resultado."""
+    ingresos = _ventas_netas(ex, fecha_desde, fecha_hasta)
+    directos, indirectos = _costes_por_tipo(ex, fecha_desde, fecha_hasta)
+    margen_bruto = ingresos - directos
+    resultado = margen_bruto - indirectos
+    mb_pct = (margen_bruto / ingresos * 100).quantize(Decimal("0.1")) if ingresos else None
+    res_pct = (resultado / ingresos * 100).quantize(Decimal("0.1")) if ingresos else None
+    return {
+        "ingresos": ingresos,
+        "ingresos_es": fmt_money(ingresos),
+        "costes_directos": directos,
+        "costes_directos_es": fmt_money(directos),
+        "margen_bruto": margen_bruto,
+        "margen_bruto_es": fmt_money(margen_bruto),
+        "margen_bruto_pct": float(mb_pct) if mb_pct is not None else None,
+        "costes_indirectos": indirectos,
+        "costes_indirectos_es": fmt_money(indirectos),
+        "resultado": resultado,
+        "resultado_es": fmt_money(resultado),
+        "resultado_pct": float(res_pct) if res_pct is not None else None,
     }
 
 
@@ -140,9 +183,14 @@ def build_gastos_tools(executor: QueryExecutor, audit: AuditLogger):
         audit and audit.record("resumen_gastos_por_tipo", "mcp", "resumen_gastos_por_tipo")
         return resumen_gastos_por_tipo(executor, fecha_desde, fecha_hasta)
 
-    @_tool("margen", "Margen bruto = ventas (facturas_venta) − costes directos (facturas_compra con coste_directo=1) en un rango. Incluye % de margen.")
+    @_tool("margen", "Margen bruto = ventas netas (ex-IVA) − costes directos (facturas_compra coste_directo=1) en un rango. Incluye % de margen.")
     def tool_margen(fecha_desde: str, fecha_hasta: str):
         audit and audit.record("margen", "mcp", "margen")
         return margen(executor, fecha_desde, fecha_hasta)
 
-    return [tool_facturas_compra, tool_resumen_gastos, tool_margen]
+    @_tool("pnl", "Cuenta de resultados (P&L): ingresos netos → costes directos → margen bruto → costes indirectos → resultado, con porcentajes.")
+    def tool_pnl(fecha_desde: str, fecha_hasta: str):
+        audit and audit.record("pnl", "mcp", "pnl")
+        return pnl(executor, fecha_desde, fecha_hasta)
+
+    return [tool_facturas_compra, tool_resumen_gastos, tool_margen, tool_pnl]

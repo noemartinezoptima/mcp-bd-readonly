@@ -44,6 +44,9 @@ QUERIES = [
     {"id": "B12", "nombre": "Margen bruto", "tabla": "facturas_venta + facturas_compra",
      "topicos": ["margen", "beneficio", "ganancia", "rentabilidad", "resultado"],
      "sql": "ventas total_euros − compras total_coste_euros (coste_directo=1) mismo rango"},
+    {"id": "B13", "nombre": "Cuenta de resultados (P&L)", "tabla": "facturas_venta + facturas_compra",
+     "topicos": ["pnl", "cuenta de resultados", "ebitda", "resultado", "perdidas y ganancias"],
+     "sql": "ingresos netos − costes directos − costes indirectos (pnl tool)"},
 ]
 
 

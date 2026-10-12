@@ -41,7 +41,11 @@ SINONIMOS = {
         "subcontrata", "subcontratado", "subcontratación",
     ],
     "margen": [
-        "margen", "beneficio", "ganancia", "rentabilidad", "resultado",
+        "margen", "beneficio", "ganancia", "rentabilidad",
+    ],
+    "pnl": [
+        "pnl", "p&l", "cuenta de resultados", "pérdidas y ganancias",
+        "perdidas y ganancias", "ebitda", "resultado", "resultado del ejercicio",
     ],
 }
 
@@ -128,11 +132,22 @@ CANONICOS_INFO = {
     "margen": {
         "tabla": "facturas_venta + facturas_compra (coste_directo=1)",
         "herramienta_mcp": "margen",
-        "nota_uso": ("Margen bruto = SUM(facturas_venta.total_euros) − SUM(facturas_compra.total_coste_euros "
+        "nota_uso": ("Margen bruto = ventas netas (total − iva) − SUM(facturas_compra.total_coste_euros "
                      "WHERE coste_directo=1) en el mismo rango de fechas."),
         "trampas": [
             "Usar total_coste_euros (no base_euros) para el coste directo.",
+            "Ventas NETAS (total_euros − iva_euros); facturas_venta no tiene base_euros.",
             "Mismo rango de fechas en ventas y compras; si no, el margen no cuadra.",
+        ],
+    },
+    "pnl": {
+        "tabla": "facturas_venta + facturas_compra",
+        "herramienta_mcp": "pnl",
+        "nota_uso": ("Cuenta de resultados: ingresos netos → costes directos (COGS) → margen bruto → "
+                     "costes indirectos (OPEX, coste_directo=0) → resultado. Todo en euros netos de IVA."),
+        "trampas": [
+            "Resultado ≠ margen: resultado resta también los costes indirectos.",
+            "coste_directo=1 = COGS, coste_directo=0 = OPEX/indirectos.",
         ],
     },
 }
@@ -147,6 +162,7 @@ _ESPECIFICIDAD = {
     "cliente": 1,
     "facturas_compra": 5,
     "margen": 4,
+    "pnl": 4,
 }
 
 
