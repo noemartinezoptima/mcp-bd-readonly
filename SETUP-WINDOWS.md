@@ -9,6 +9,21 @@ venv (`Scripts` en vez de `bin`) y el túnel SSH (`tunnel.ps1` en vez de `tunnel
 
 ---
 
+## Vía rápida — wizard (recomendado)
+
+Automatiza los Pasos 2–4 (credenciales + registro en agentes) en un solo comando:
+
+```powershell
+pwsh scripts\setup.ps1
+```
+
+Genera clave SSH ed25519 (si falta) + bloque `~/.ssh/config`, pide credenciales MySQL
+y escribe `%USERPROFILE%\.zt-readonly.env`, registra el MCP en Claude Code / OpenCode /
+Cursor / Claude Desktop, y verifica `SELECT 1`. Los Pasos 0–1.5 siguen siendo manuales
+(prerrequisitos + venv + LibreOffice).
+
+---
+
 ## Paso 0 — Prerrequisitos
 
 - Python 3.10+ desde https://python.org (marca "Add python to PATH")

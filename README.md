@@ -34,11 +34,14 @@ Si el parser falla, MySQL niega; si MySQL falla, el parser niega. Sin usuario de
 
 ## Uso
 
-0. Preparar SSH (solo una vez, antes del primer túnel). Si no existe la clave `~/.ssh/id_ed25519` ni el host `db-host` en `~/.ssh/config`, genera ambos automáticamente — solo pide tu email:
+0. Setup guiado (SSH + credenciales MySQL + registro en agentes). Un solo comando:
    ```bash
-   bash scripts/setup-ssh.sh
+   bash scripts/setup.sh          # macOS/Linux
+   pwsh scripts/setup.ps1         # Windows
    ```
-   Configura los valores reales con `SSH_HOST`/`SSH_HOSTNAME`/`SSH_KEY`/`SSH_USER` (o defaults en `~/.ssh/config`). Al final imprime la clave pública para añadirla al servidor (1 paso manual). Verificado: `ssh db-host 'echo OK'`.
+   Hace, en orden: genera clave SSH ed25519 (si falta) + bloque `~/.ssh/config`; pide credenciales MySQL y escribe `~/.zt-readonly.env` (modo 600); registra el MCP en Claude Code / OpenCode / Cursor / Claude Desktop; y verifica `SELECT 1`.
+
+   Alternativa manual (solo SSH, sin wizard): `bash scripts/setup-ssh.sh` genera la clave y el host `db-host` — solo pide tu email. Configura valores reales con `SSH_HOST`/`SSH_HOSTNAME`/`SSH_KEY`/`SSH_USER`. Al final imprime la clave pública para añadirla al servidor (1 paso manual). Verificado: `ssh db-host 'echo OK'`.
 
 1. Ejecutar el servidor MCP (stdio). **El túnel SSH se gestiona solo**: si `127.0.0.1:13306` no responde, el MCP lanza `ssh -N -L 13306:127.0.0.1:3306 db-host` como subproceso y lo cierra al terminar:
    ```bash
