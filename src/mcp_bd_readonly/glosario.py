@@ -47,6 +47,10 @@ SINONIMOS = {
         "pnl", "p&l", "cuenta de resultados", "pérdidas y ganancias",
         "perdidas y ganancias", "ebitda", "resultado", "resultado del ejercicio",
     ],
+    "stock": [
+        "stock", "inventario", "existencia", "existencias", "artículo", "articulo",
+        "articulos", "almacen", "almacén", "producto", "productos",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -150,6 +154,16 @@ CANONICOS_INFO = {
             "coste_directo=1 = COGS, coste_directo=0 = OPEX/indirectos.",
         ],
     },
+    "stock": {
+        "tabla": "stock_articles + stock_locations + stock_movements",
+        "herramienta_mcp": "stock_actual",
+        "nota_uso": ("Stock actual = último resulting_stock por (article_id, location_id). "
+                     "stock_articles = productos; stock_locations = ubicaciones/almacenes."),
+        "trampas": [
+            "No hay columna 'stock' en stock_articles: el stock vive en stock_movements.resulting_stock.",
+            "Ubicaciones típicas: Interno / Externo / Material defectuoso / OPTIMA RETAIL.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -163,6 +177,7 @@ _ESPECIFICIDAD = {
     "facturas_compra": 5,
     "margen": 4,
     "pnl": 4,
+    "stock": 5,
 }
 
 

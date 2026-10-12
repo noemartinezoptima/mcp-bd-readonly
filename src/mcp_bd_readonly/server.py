@@ -11,6 +11,7 @@ from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
 from mcp_bd_readonly.tools_analisis import build_analisis_tools
 from mcp_bd_readonly.tools_gastos import build_gastos_tools
+from mcp_bd_readonly.tools_stock import build_stock_tools
 from mcp_bd_readonly.tools_meta import build_meta_tools
 from mcp_bd_readonly.tunnel import TunnelManager
 from mcp_bd_readonly.tools_setup import setup_ssh
@@ -41,6 +42,8 @@ def main():
     for fn in build_analisis_tools(executor, audit):
         mcp.tool()(fn)
     for fn in build_gastos_tools(executor, audit):
+        mcp.tool()(fn)
+    for fn in build_stock_tools(executor, audit):
         mcp.tool()(fn)
     for fn in build_meta_tools(cfg, audit):
         mcp.tool()(fn)

@@ -47,6 +47,9 @@ QUERIES = [
     {"id": "B13", "nombre": "Cuenta de resultados (P&L)", "tabla": "facturas_venta + facturas_compra",
      "topicos": ["pnl", "cuenta de resultados", "ebitda", "resultado", "perdidas y ganancias"],
      "sql": "ingresos netos − costes directos − costes indirectos (pnl tool)"},
+    {"id": "B14", "nombre": "Stock actual", "tabla": "stock_movements + stock_articles",
+     "topicos": ["stock", "inventario", "existencia", "articulo", "almacen", "producto"],
+     "sql": "último resulting_stock por (article_id, location_id) — tool stock_actual"},
 ]
 
 
