@@ -69,7 +69,9 @@ def test_describe_table():
     audit = FakeAudit()
     [_, _, describe_table, *_] = build_tools(executor, audit)
     result = describe_table("users")
-    assert result == [{"Field": "id", "Type": "int(11)"}]
+    # Devuelve una sola pieza {columns, rows} — igual que run_query — y no una
+    # lista con un bloque de contenido por columna.
+    assert result == {"columns": ["Field", "Type"], "rows": [["id", "int(11)"]]}
     assert executor.sqls[0] == "DESCRIBE `users`"
     assert audit.calls[0][2] == "DESCRIBE users"
 

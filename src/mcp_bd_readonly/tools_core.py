@@ -20,11 +20,14 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         key = cols[0]
         return [r[key] for r in rows]
 
-    def describe_table(table: str) -> list[dict]:
-        """Columnas y tipos de una tabla (DESCRIBE)."""
+    def describe_table(table: str) -> dict:
+        """Columnas y tipos de una tabla (DESCRIBE). Devuelve {columns, rows}, lo
+        mismo que run_query: una sola pieza de JSON en vez de un bloque de
+        contenido por columna, que para una tabla de 32 campos costaba ~4 veces
+        más en tokens y repetía Field/Type/Null/Key/Default/Extra en cada uno."""
         audit and audit.record("describe_table", "mcp", f"DESCRIBE {table}")
-        _, rows = executor.run(f"DESCRIBE {_quote_id(table)}", limit=None)
-        return rows
+        from mcp_bd_readonly.dbutils import shape_rows
+        return shape_rows(executor.run(f"DESCRIBE {_quote_id(table)}", limit=None))
 
     def run_query(query: str, limit: int | None = 100) -> dict:
         """SQL solo-lectura; devuelve {columns, rows, truncated} (JSON). limit = nº máximo de
