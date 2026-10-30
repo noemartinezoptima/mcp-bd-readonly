@@ -12,8 +12,13 @@ tool": es el comportamiento esperado, no un fallo.
 
 El perfil se fija con `MCP_TOOL_PROFILE` en el arranque y vale para todas las
 conexiones de esa instancia. Vacío o `todas` => las 37, es decir el
-comportamiento de siempre.
+comportamiento de siempre. Un valor desconocido no tumba el servicio: cae a
+`todas` y deja constancia del error (ver `aviso_perfil`).
 """
+
+import logging
+
+log = logging.getLogger(__name__)
 
 # Siempre presentes: sin ellas no se puede trabajar en ningún dominio.
 CORE = frozenset({
@@ -66,19 +71,34 @@ SOLO_TODAS = frozenset({
 _TODAS = frozenset({"", "todas", "all", "*"})
 
 
+def aviso_perfil(perfil: str | None) -> str:
+    """Aviso si `MCP_TOOL_PROFILE` no existe; cadena vacía si es válido.
+
+    Antes un valor desconocido lanzaba y el servicio entraba en crash-loop
+    (`Restart=on-failure`, `RestartSec=3`): una errata en una env var dejaba el
+    endpoint caído en bucle. Ahora no lanza, pero tampoco puede pasar
+    desapercibido — el mismo texto va al journal y a `instructions`, que es lo
+    que lee el cliente en `initialize`.
+    """
+    p = (perfil or "").strip().lower()
+    if p in _TODAS or p in PERFILES:
+        return ""
+    validos = ", ".join(sorted(PERFILES)) + ", todas"
+    return (
+        f"MCP_TOOL_PROFILE={perfil!r} no existe, se sirven las herramientas de "
+        f"siempre. Perfiles válidos: {validos}."
+    )
+
+
 def herramientas_activas(perfil: str | None) -> frozenset | None:
     """Nombre del perfil => conjunto de tools; `None` => todas.
 
-    Un perfil desconocido lanza en el arranque: un `MCP_TOOL_PROFILE` mal
-    escrito no debe pasar por alto y dejar al cliente con las 37 tools creyendo
-    que las había limitado.
+    Un perfil desconocido NO lanza: cae a `todas` y deja el error en el log.
     """
     p = (perfil or "").strip().lower()
     if p in _TODAS:
         return None
     if p in PERFILES:
         return PERFILES[p]
-    validos = ", ".join(sorted(PERFILES)) + ", todas"
-    raise ValueError(
-        f"MCP_TOOL_PROFILE={perfil!r} no existe. Perfiles válidos: {validos}."
-    )
+    log.error(aviso_perfil(perfil))
+    return None

@@ -14,7 +14,7 @@ from mcp_bd_readonly.esquema_snapshot import build_schema_tools
 from mcp_bd_readonly.catalogo_queries import build_queries_tools
 from mcp_bd_readonly.memoria import build_memoria_tools
 from mcp_bd_readonly.prompts import build_prompts
-from mcp_bd_readonly.perfiles import herramientas_activas
+from mcp_bd_readonly.perfiles import aviso_perfil, herramientas_activas
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
@@ -84,13 +84,16 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
                 allowed_hosts=allowed_hosts(cfg, cfg.http_port),
             ),
         )
-    mcp = FastMCP("mcp-optima-bd", instructions=INSTRUCTIONS, **kwargs)
-
     # Perfil de tools. `activas` None => las 37 de siempre; con perfil, solo las
     # de ese dominio, lo que baja el tools/list de ~4.000 tokens a ~1.000-2.000.
-    # Un perfil mal escrito lanza aquí y el servicio no arranca en vez de
-    # engañar al cliente creyendo que había limitado algo.
-    activas = herramientas_activas(getattr(cfg, "tool_profile", ""))
+    # Un perfil mal escrito NO tumba el servicio (antes entraba en crash-loop y
+    # una errata en la env var dejaba el endpoint caído): cae a las 37 y se
+    # avisa aquí, en `instructions`, que es donde lo ve el cliente.
+    perfil = getattr(cfg, "tool_profile", "")
+    activas = herramientas_activas(perfil)
+    aviso = aviso_perfil(perfil)
+    instrucciones = INSTRUCTIONS if not aviso else f"{INSTRUCTIONS}\nAVISO: {aviso}"
+    mcp = FastMCP("mcp-optima-bd", instructions=instrucciones, **kwargs)
 
     def reg(fn):
         if activas is None or fn.__name__ in activas:

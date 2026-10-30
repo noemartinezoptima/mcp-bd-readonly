@@ -1,12 +1,17 @@
 """Perfiles de tools: ahorro de contexto sin dejar herramientas sin clasificar."""
 
 import asyncio
+import logging
 from types import SimpleNamespace
 
-import pytest
-
 from mcp_bd_readonly.config import load_config
-from mcp_bd_readonly.perfiles import CORE, PERFILES, SOLO_TODAS, herramientas_activas
+from mcp_bd_readonly.perfiles import (
+    CORE,
+    PERFILES,
+    SOLO_TODAS,
+    aviso_perfil,
+    herramientas_activas,
+)
 from mcp_bd_readonly.server import build_mcp
 
 
@@ -79,13 +84,32 @@ def test_vacio_y_todas_son_equivalentes():
     assert herramientas_activas(None) is None
 
 
-def test_perfil_desconocido_lanza_en_arranque():
-    """Un `MCP_TOOL_PROFILE` mal escrito no debe pasar desapercibido: si no,
-    el cliente recibiría las 37 tools creyendo que había limitado algo."""
-    with pytest.raises(ValueError) as ei:
-        herramientas_activas("contabilid")
-    assert "MCP_TOOL_PROFILE" in str(ei.value)
-    assert "contabilidad" in str(ei.value)
+def test_perfil_desconocido_no_tumba_el_servicio(caplog):
+    """Una errata en `MCP_TOOL_PROFILE` no puede dejar el endpoint en crash-loop:
+    antes lanzaba y systemd lo reiniciaba en bucle hasta dejar mcp-back caído."""
+    with caplog.at_level(logging.ERROR, logger="mcp_bd_readonly.perfiles"):
+        assert herramientas_activas("contabilid") is None
+    assert "MCP_TOOL_PROFILE" in caplog.text
+    assert "contabilidad" in caplog.text  # dice los válidos
+
+
+def test_perfil_desconocido_sirve_las_37_y_lo_dice_en_instructions(tmp_path):
+    """Tampoco puede pasar desapercibido: se sirven las 37 de siempre (nada
+    desaparece en silencio) y el aviso viaja en `instructions`, que es lo que
+    lee el cliente en cada `initialize`."""
+    assert len(_nombres(tmp_path, "contabilid")) == 38
+    mcp = build_mcp(_cfg(tmp_path, "contabilid"), executor=object(), audit=None,
+                    remote=False)
+    texto = mcp.instructions or ""
+    assert "MCP_TOOL_PROFILE" in texto and "contabilidad" in texto
+
+
+def test_perfil_valido_y_vacio_no_annaden_aviso(tmp_path):
+    for perfil in ("", "todas", "contabilidad"):
+        mcp = build_mcp(_cfg(tmp_path, perfil), executor=object(), audit=None,
+                        remote=False)
+        assert "MCP_TOOL_PROFILE" not in (mcp.instructions or "")
+        assert aviso_perfil(perfil) == ""
 
 
 def test_write_config_persiste_el_perfil(tmp_path, monkeypatch):
