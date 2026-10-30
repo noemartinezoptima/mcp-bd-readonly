@@ -21,7 +21,11 @@ class FakeCursor:
         self.conn.executed.append(sql)
 
     def fetchall(self):
-        return self.conn.rows
+        cols = [c[0] for c in self.description] if self.description else []
+        return [
+            tuple(r[c] for c in cols) if isinstance(r, dict) else r
+            for r in self.conn.rows
+        ]
 
 
 class FakeConn:

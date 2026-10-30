@@ -88,6 +88,28 @@ def _warn(msg: str) -> None:
     print(f"mcp-optima-bd: {msg}", file=sys.stderr)
 
 
+def _unique_cols(names) -> list[str]:
+    """Nombres de columna únicos dentro de una misma fila.
+
+    MySQL repite el nombre en `description` cuando la query saca dos columnas
+    iguales (`SELECT m.nombre, e.nombre`). Indexar la fila por ese nombre hace
+    que la segunda columna se pierda y la primera salga dos veces, sin ningún
+    error: el cliente recibe datos falsos. Se desambigua con sufijo _2, _3...
+    respetando el orden y sin chocar con nombres que ya existan en la query.
+    """
+    out: list[str] = []
+    used: set[str] = set()
+    for name in names:
+        candidate = name
+        n = 1
+        while candidate in used:
+            n += 1
+            candidate = f"{name}_{n}"
+        used.add(candidate)
+        out.append(candidate)
+    return out
+
+
 class PoolExhausted(RuntimeError):
     """No hubo conexión libre en el tiempo de espera."""
 
@@ -174,7 +196,9 @@ class QueryExecutor:
             password=self.cfg.password,
             database=self.cfg.db,
             charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor,
+            # Cursor por TUPLAS, no DictCursor: la fila se arma por posición con
+            # _unique_cols, así dos columnas homónimas conservan ambas su valor.
+            cursorclass=pymysql.cursors.Cursor,
             read_timeout=int(getattr(self.cfg, "read_timeout_s", 20) or 20),
             connect_timeout=int(getattr(self.cfg, "connect_timeout_s", 5) or 5),
             # Sin transacción abierta: una sesión con snapshot viejo impide purgar
@@ -265,8 +289,12 @@ class QueryExecutor:
                             raise
                         TunnelManager(self.cfg).ensure()
                         continue
-                    cols = [d[0] for d in cur.description] if cur.description else []
-                    rows = [_convert(r) for r in cur.fetchall()]
+                    cols = (
+                        _unique_cols([d[0] for d in cur.description])
+                        if cur.description
+                        else []
+                    )
+                    rows = [_convert(dict(zip(cols, values))) for values in cur.fetchall()]
                     self._note_slow(clamped, int((time.monotonic() - t0) * 1000))
                     break
             finally:

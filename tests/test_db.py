@@ -3,7 +3,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from mcp_bd_readonly.db import MAX_ROWS, QueryExecutor, _convert, _retryable
+from mcp_bd_readonly.db import (
+    MAX_ROWS,
+    QueryExecutor,
+    _convert,
+    _retryable,
+    _unique_cols,
+)
 from mcp_bd_readonly.security import ReadOnlyViolation
 
 
@@ -33,7 +39,15 @@ class FakeCursor:
         self.params = params
 
     def fetchall(self):
-        return self.rows
+        # El executor lee tuplas (cursor pymysql.Cursor). Los casos de test
+        # pueden seguir escribiéndose con dicts: aquí se pasan a tuplas según
+        # description, en el orden real de las columnas.
+        if self.description is None:
+            return self.rows
+        cols = [c[0] for c in self.description]
+        return [
+            tuple(r[c] for c in cols) if isinstance(r, dict) else r for r in self.rows
+        ]
 
 
 class FakeConn:
@@ -267,6 +281,26 @@ def test_run_no_sql_limit_on_explain(monkeypatch):
     monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
     ex.run("EXPLAIN SELECT * FROM t", limit=5)
     assert cur.executed == "EXPLAIN SELECT * FROM t"
+
+
+def test_unique_cols_desambigua_repetidas():
+    assert _unique_cols(["nombre", "nombre", "nombre"]) == [
+        "nombre", "nombre_2", "nombre_3"
+    ]
+    assert _unique_cols(["id", "total"]) == ["id", "total"]
+    # Con un nombre que ya choca, el resultado sigue siendo único.
+    cols = _unique_cols(["x", "x", "x_2"])
+    assert len(set(cols)) == 3 and cols[0] == "x"
+
+
+def test_run_columnas_repetidas_conservan_sus_valores(monkeypatch):
+    """SELECT m.nombre, e.nombre: antes ambas columnas devolvían el mismo valor."""
+    ex = make_executor()
+    cur = FakeCursor([("Interno", "OT")], ["nombre", "nombre"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    cols, rows = ex.run("SELECT m.nombre, e.nombre FROM ots o JOIN modelos m")
+    assert cols == ["nombre", "nombre_2"]
+    assert rows == [{"nombre": "Interno", "nombre_2": "OT"}]
 
 
 def test_run_py_slices_when_no_sql_limit(monkeypatch):
