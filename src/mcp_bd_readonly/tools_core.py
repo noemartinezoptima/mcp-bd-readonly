@@ -27,9 +27,11 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         return rows
 
     def run_query(query: str, limit: int | None = 100) -> dict:
-        """SQL solo-lectura; devuelve {columns, rows} (JSON). limit = nº máximo de filas (default 100);
-        None = todas, con tope duro de 50.000 filas (por encima devuelve error: agrega o filtra).
-        limit 0 o negativo NO es válido: para contar usa una query con COUNT(*)."""
+        """SQL solo-lectura; devuelve {columns, rows, truncated} (JSON). limit = nº máximo de
+        filas (default 100); None = todas, con tope duro de 50.000 filas (por encima devuelve
+        error: agrega o filtra). limit 0 o negativo NO es válido: para contar usa COUNT(*).
+        truncated=true cuando llegan exactamente `limit` filas: puede haber más, así que no
+        uses len(rows) como total."""
         audit and audit.record("run_query", "mcp", query)
         if limit is not None:
             if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
@@ -38,7 +40,14 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
                     f"Recibido {limit!r}. Para contar usa una query con COUNT(*)."
                 )
         from mcp_bd_readonly.dbutils import shape_rows
-        return shape_rows(executor.run(query, limit=limit))
+        cols, rows = executor.run(query, limit=limit)
+        out = shape_rows((cols, rows))
+        # Sobredice a propósito: si llegan exactamente `limit` filas no hay forma
+        # de saber sin otra consulta si hay más, y dar por buena una cifra
+        # recortada es un error material en contabilidad. Mejor un falso positivo
+        # (se re-consulta con COUNT) que un falso negativo (se informa mal).
+        out["truncated"] = limit is not None and len(rows) >= limit
+        return out
 
     return [list_databases, list_tables, describe_table, run_query]
 

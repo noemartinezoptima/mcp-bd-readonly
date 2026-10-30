@@ -4,7 +4,6 @@ import re
 import sys
 import threading
 import time
-from decimal import Decimal
 from pathlib import Path
 
 import pymysql
@@ -321,12 +320,12 @@ class QueryExecutor:
 
 
 def _convert(row: dict) -> dict:
-    out = {}
-    for k, v in row.items():
-        if isinstance(v, (int, float)) and v is not None:
-            out[k] = v
-        elif isinstance(v, Decimal):
-            out[k] = v
-        else:
-            out[k] = v
-    return out
+    """Preserva los tipos que trae pymysql: int, float y sobre todo Decimal.
+
+    Los DECIMAL de MySQL llegan como Decimal y los importes financieros no se
+    redondean aquí: quien formatea es format_es y quien suma es exact_sum.
+    Antes llevaba tres ramas (int/float, Decimal, resto) que devolvían idéntico
+    valor, así que se colapsa a una sola línea sin cambiar el contrato que
+    cubre test_convert_preserves_types.
+    """
+    return dict(row)

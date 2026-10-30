@@ -82,7 +82,7 @@ def test_run_query():
     audit = FakeAudit()
     [_, _, _, run_query] = build_tools(executor, audit)
     result = run_query("SELECT id, name FROM users")
-    assert result == {"columns": ["id", "name"], "rows": [[1, "Alice"]]}
+    assert result == {"columns": ["id", "name"], "rows": [[1, "Alice"]], "truncated": False}
     assert audit.calls[0][0] == "run_query"
 
 
@@ -90,7 +90,7 @@ def test_run_query_no_columns():
     executor = FakeExecutor([], [])
     [_, _, _, run_query] = build_tools(executor, None)
     result = run_query("SELECT 1")
-    assert result == {"columns": [], "rows": []}
+    assert result == {"columns": [], "rows": [], "truncated": False}
 
 
 def test_describe_table_escapes_backticks():
