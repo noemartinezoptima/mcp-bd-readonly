@@ -22,6 +22,11 @@ id -u mcp >/dev/null 2>&1 || useradd --system --home "$DST" --shell /usr/sbin/no
 
 mkdir -p "$DST" "$DATA" "$ENVDIR"
 
+# Claves ya emitidas: se conservan, o el cliente que las tenga deja de funcionar.
+if [ -s "$SRC/data/api_keys.db" ] && [ ! -s "$DATA/api_keys.db" ]; then
+    install -o mcp -g mcp -m 600 "$SRC/data/api_keys.db" "$DATA/api_keys.db"
+fi
+
 # Código: copia sin el .venv del home (tiene rutas absolutas) ni el log de pruebas.
 if [ "$SRC" != "$DST" ]; then
     cp -a "$SRC/." "$DST/"
