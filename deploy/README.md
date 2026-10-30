@@ -143,7 +143,32 @@ El `.env` de producción vive en `/etc/mcp-optima-bd/mcp.env` (0640 root:mcp) y
 
 ## 3. nginx + Cloudflare
 
-Un solo comando, con validación previa y rollback automático:
+### Estado: ya instalado en `optimaback-standby` (recipe de Forge)
+
+El vhost y el `geo` están instalados desde el 2026-10-30 por la recipe
+`install-mcp-back-nginx` (org `optima-retail-sl`, id **172549**), que corre
+**como root** en el servidor. Ejecución verificada: run `576069`.
+
+Para re-ejecutarla (es idempotente: hace backup en `/root/mcp-back-nginx-backup`
+y revierte si `nginx -t` falla):
+
+```bash
+TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.laravel-forge/config.json')))['token'])")
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' \
+     -H 'Content-Type: application/json' -d '{"servers":[1216161]}' \
+     https://forge.laravel.com/api/orgs/optima-retail-sl/recipes/172549/runs
+# el log de la ejecución:
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' \
+     https://forge.laravel.com/api/orgs/optima-retail-sl/recipes/172549/runs | head -c 800
+```
+
+`forge command` **no** sirve para esto: el CLI de Forge ejecuta como el usuario
+del site (`forge`), y `/etc/nginx` es `root:root`; el CLI no tiene ningún comando
+que escriba vhosts. La vía root es la recipe (o tu `sudo`).
+
+### Alternativa con sudo
+
+Equivalente, por si prefieres no depender de la recipe:
 
 ```bash
 scp deploy/instalar-nginx.sh deploy/nginx/mcp-back.optimaonline.eu.conf optimaback-standby:~
@@ -182,15 +207,36 @@ DNS: `mcp-back.optimaonline.eu` proxied (naranja) en Cloudflare, SSL = Full (str
 **Fijar el nombre antes de crear el site**: renombrar en Forge no actualiza el
 nginx raíz.
 
-### Verificación hecha antes de instalar
+### Verificación (en el servidor, ya instalado)
 
-- `nginx -t` real (nginx 1.31.1) con el geo generado de los 22 rangos: OK.
-- Proxy completo en puertos altos, sin tocar `/etc`: `/healthz` → 200,
-  `POST /mcp` sin clave → 401, con clave → 200 (`serverInfo.mcp-optima-bd`).
-- Geo cerrado (peer no listado) → 403, también en `/healthz`.
-- Certificado presentado: `CloudFlare Origin Certificate`, SAN `*.optimaonline.eu`.
-- El `Host` público ya está admitido por la app (no hace falta tocar
-  `MCP_ALLOWED_HOSTS`).
+- `nginx -t`: `syntax is ok` / `test is successful`; reload aplicado sin cortar
+  el servicio.
+- `/healthz` → **200**; `HTTP:80` → **301** a HTTPS.
+- `POST /mcp` sin clave → **401**.
+- `initialize` con clave real → **200** (`serverInfo.mcp-optima-bd` v1.30.0).
+- `tools/list` → **37 tools**.
+- Peer **no** Cloudflare (conexión directa a la IP desde fuera) → **403**, tanto en
+  `/healthz` como en `/mcp`.
+- Certificado presentado: `CloudFlare Origin Certificate`, SAN `*.optimaonline.eu`
+  (válido hasta 2041). Es Origin CA: los `curl` de prueba necesitan `-k`.
+- `back.optimaonline.eu` sigue respondiendo (302 a login), así que la plataforma
+  no se vio afectada.
+
+### Verificación pública (hecha, DNS ya creado)
+
+DNS: `A mcp-back → 167.233.70.237`, **Proxied**. Confirmado en los autoritativos
+de la zona, en `1.1.1.1` y en `8.8.8.8` (`104.21.42.112`, `172.67.161.165`).
+
+A través de Cloudflare, con TLS validado (sin `-k`):
+
+- `https://mcp-back.optimaonline.eu/healthz` → **200**
+  `{"status":"ok","servicio":"mcp-optima-bd",...}`, `server: cloudflare`.
+- `POST /mcp` sin clave → **401**.
+- `initialize` con clave real → **200** (`serverInfo.mcp-optima-bd`).
+- `tools/list` → **37 tools**.
+
+Endurecimiento comprobado: la conexión **directa a la IP**, sin pasar por
+Cloudflare, devuelve **403** en `/healthz` y en `/mcp`.
 
 Rollback total:
 
@@ -238,11 +284,38 @@ sudo systemctl show mcp-optima-bd -p MemoryMax
 }
 ```
 
+### Atajo en el servidor: `mcp-key`
+
+[`deploy/bin/mcp-key`](bin/mcp-key) se instala en `~/bin/mcp-key` del usuario
+`forge` y avisa al iniciar sesión. Evita tener que buscar la clave a mano:
+
+```bash
+mcp-key                 # clave + JSON de cliente + estado de /healthz
+mcp-key json            # solo el JSON, para pegar en el cliente
+mcp-key probar          # handshake real: initialize 200 + nº de tools
+mcp-key listar          # claves del servidor (sin secretos; pide contraseña)
+mcp-key nueva <nombre>  # emite una clave y la guarda (pide contraseña)
+```
+
+La clave vive en `~/.mcp-api-key-finanzas` (0600), **primera línea**: la segunda
+(`id=… scopes=…`) son metadatos y no forman parte del token.
+
+`listar`/`nueva` necesitan `sudo -u mcp` porque `/var/lib/mcp-optima-bd/api_keys.db`
+es `0600 mcp:mcp` y las claves están **hasheadas** (SHA-256): no se pueden
+recuperar desde la base, solo emitir otra.
+
+Instalación (idempotente):
+
+```bash
+scp deploy/bin/mcp-key forge@<host>:bin/mcp-key   # chmod 755
+# + bloque de PATH y banner en ~/.profile y ~/.bashrc (ver el propio script)
+```
+
 ## 6. Rotación y revocación
 
 ```bash
 # crear nueva, migrar clientes, revocar la vieja
-python -m mcp_bd_readonly.auth --db /var/lib/mcp-optima-bd/api_keys.db create --name finanzas-2026Q4
+mcp-key nueva finanzas-2026Q4        # equivale al `create` de abajo
 python -m mcp_bd_readonly.auth --db /var/lib/mcp-optima-bd/api_keys.db revoke --id <id_viejo>
 ```
 
