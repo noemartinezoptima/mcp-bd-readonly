@@ -14,6 +14,7 @@ from mcp_bd_readonly.esquema_snapshot import build_schema_tools
 from mcp_bd_readonly.catalogo_queries import build_queries_tools
 from mcp_bd_readonly.memoria import build_memoria_tools
 from mcp_bd_readonly.prompts import build_prompts
+from mcp_bd_readonly.perfiles import herramientas_activas
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
@@ -85,37 +86,48 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
         )
     mcp = FastMCP("mcp-optima-bd", instructions=INSTRUCTIONS, **kwargs)
 
+    # Perfil de tools. `activas` None => las 37 de siempre; con perfil, solo las
+    # de ese dominio, lo que baja el tools/list de ~4.000 tokens a ~1.000-2.000.
+    # Un perfil mal escrito lanza aquí y el servicio no arranca en vez de
+    # engañar al cliente creyendo que había limitado algo.
+    activas = herramientas_activas(getattr(cfg, "tool_profile", ""))
+
+    def reg(fn):
+        if activas is None or fn.__name__ in activas:
+            mcp.tool()(fn)
+        return fn
+
     for fn in build_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_glosario_tools(audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_finanzas_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_auditoria_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_catalogo_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_analisis_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_gastos_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_stock_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_balance_tools(executor, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_meta_tools(cfg, audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_schema_tools(executor, audit, cfg.data_dir):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_queries_tools(audit):
-        mcp.tool()(fn)
+        reg(fn)
     for fn in build_memoria_tools(audit, cfg.data_dir):
-        mcp.tool()(fn)
+        reg(fn)
     # setup_ssh escribe en el sistema de ficheros y en ~/.ssh/config: en el
     # servidor remoto lo usa el operador por SSH, no un cliente MCP.
     if not remote:
-        mcp.tool()(setup_ssh)
-    mcp.tool()(detectar_agente)
+        reg(setup_ssh)
+    reg(detectar_agente)
 
     # Guiones MCP: el agente los pide con prompts/get, no viajan en el handshake.
     build_prompts(mcp)
@@ -123,10 +135,10 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     # Excel: en remoto no se leen rutas del servidor; el contenido llega en
     # base64 y se procesa en memoria (cero escritura en disco).
     file_guard.configure(cfg.files_dir or None, allow_paths=excel_paths_allowed(remote, cfg))
-    mcp.tool()(leer_excel)
-    mcp.tool()(check_excel_capabilities)
-    mcp.tool()(resumen_excel)
-    mcp.tool()(reconciliar_excel_bd)
+    reg(leer_excel)
+    reg(check_excel_capabilities)
+    reg(resumen_excel)
+    reg(reconciliar_excel_bd)
     return mcp
 
 

@@ -42,6 +42,10 @@ class Config:
     # Directorio permitido para las tools de Excel en modo HTTP. Vacío => esas
     # tools no se registran (fallan cerrado en vez de leer rutas del servidor).
     files_dir: str = ""
+    # Perfil de tools a registrar: "" o "todas" => las 37 (comportamiento
+    # histórico); "contabilidad" / "operaciones" / "excel" => solo las de ese
+    # dominio y el tools/list baja de ~4.000 tokens a ~1.000-2.000.
+    tool_profile: str = ""
 
 
 def _load_env_file(path: Path) -> dict:
@@ -108,6 +112,7 @@ def load_config(env_file: Path | None = None) -> Config:
         api_keys_path=Path(get("MCP_API_KEYS_DB", "./data/api_keys.db")),
         rate_limit_per_min=as_int("MCP_RATE_LIMIT_PER_MIN", 120),
         files_dir=get("MCP_FILES_DIR"),
+        tool_profile=get("MCP_TOOL_PROFILE"),
     )
 
 
@@ -139,6 +144,7 @@ def write_config(cfg: Config, path: Path | None = None, force: bool = False) -> 
         f"MYSQL_REPLICA_USER={cfg.replica_user}",
         f"MYSQL_REPLICA_LAG_MAX_S={cfg.replica_lag_max_s}",
         f"MCP_FILES_DIR={cfg.files_dir}",
+        f"MCP_TOOL_PROFILE={cfg.tool_profile}",
     ]
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("\n".join(lines) + "\n")
