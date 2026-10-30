@@ -51,9 +51,14 @@ SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='back';  -- 39
 INSERT INTO back.facturas_venta (id) VALUES (0);  -- ERROR 1290: super_read_only
 ```
 
-Usuario de lectura para el MCP — **se crea en el PRIMARIO**, no en la réplica: con
-`super_read_only` el `CREATE USER` local falla con `ERROR 1290`, probado el
-30-oct-2026. Llega al standby por replicación y allí solo se verifica.
+Usuario de lectura del MCP: hoy el servicio usa **`direccion`** (el de Maruan,
+9-oct-2026): `SELECT`/`SHOW VIEW` en `back` y `oo`, **máx. 3 conexiones y 5 min
+por consulta** → `MYSQL_POOL_SIZE=2`.
+
+Endurecimiento opcional (`back_readonly`, cuenta propia del servicio). **Se crea en
+el PRIMARIO**, no en la réplica: con `super_read_only` el `CREATE USER` local
+falla con `ERROR 1290` (probado el 30-oct-2026). Llega al standby por replicación
+y allí solo se verifica. Lo hace todo `deploy/crear-back_readonly.sh`.
 
 ```sql
 -- PRIMARIO

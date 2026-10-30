@@ -30,11 +30,24 @@ Comprobado por SSH en `optimaback-standby`, sin modificar nada:
 Consecuencia: **D0 queda tachado**; los scripts de `deploy/replica/` se conservan
 solo para reconstruir la réplica si se cae más allá de la retención del binlog.
 
-**Hallazgo que bloquea D1**: `CREATE USER` falla en el standby con
-`ERROR 1290 (HY000) ... --super-read-only` (probado). El usuario `back_readonly`
-tiene que crearse **en el primario** y llega por replicación. En
-`optimaback-active` el usuario `forge` no tiene acceso a MySQL
-(`ERROR 1045`), así que ese paso requiere una sesión con `sudo mysql` allí.
+**Usuario de lectura en uso**: `direccion` (el que pasó Maruan el 9-oct-2026),
+con `SELECT`/`SHOW VIEW` sobre `back` y `oo`, **máximo 3 conexiones y 5 min por
+consulta**. Por eso `MYSQL_POOL_SIZE=2`: deja una conexión libre para uso humano.
+
+`back_readonly` (cuenta propia del servicio) sigue siendo el endurecimiento
+recomendado. Se crea **en el primario**: en el standby `CREATE USER` falla con
+`ERROR 1290 (HY000) ... --super-read-only` (probado) y en `optimaback-active`
+`forge` no tiene acceso a MySQL (`ERROR 1045`), así que ese paso necesita
+`sudo mysql` allí (`deploy/crear-back_readonly.sh` lo hace todo).
+
+### D1 verificado (30-oct-2026)
+
+- Código en `/home/forge/mcp-optima-bd` (tag `mcp-remote-v0.1`) con venv propio.
+- `/healthz` 200 · `POST /mcp` sin clave 401 · `tools/list` **37 tools** (4 de
+  Excel, sin `setup_ssh`).
+- Con datos reales vía réplica: `resumen_iva` 1T-2026 → 1.031.179,45 € de IVA;
+  `stock_actual` y `balance` en menos de 1 s.
+- Falta solo el unit systemd: `sudo bash deploy/instalar-standby.sh`.
 
 ## 1. Pre-flight (antes de tocar servidores)
 
