@@ -12,3 +12,7 @@ data/
 # Artefactos locales NO versionables (evitar filtración en repo público)
 .engineering-os/
 CLARIFICACIONES-DPO.xlsx
+
+# Artefactos del workspace: el propio .freebuff/.gitignore pide no commitearlos
+.freebuff/
+.cloud-attachments/
