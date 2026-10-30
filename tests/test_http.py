@@ -73,6 +73,54 @@ def test_clave_revocada_deja_de_pasar(tmp_path):
     assert resp.status_code == 401
 
 
+def test_key_sin_alcance_read_devuelve_403(tmp_path):
+    """El alcance tiene que aplicarse en el HTTP: antes de esto, --scopes era
+    decorativo y una key sin 'read' pasaba igual que cualquier otra."""
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("parcial", scopes=("nada",))
+    with make_client(store) as client:
+        resp = client.post("/mcp", headers={"Authorization": f"Bearer {created['key']}"})
+    assert resp.status_code == 403
+    assert resp.json()["error"] == "forbidden"
+
+
+def test_key_sin_scopes_devuelve_403(tmp_path):
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("vacia", scopes=())
+    with make_client(store) as client:
+        resp = client.post("/mcp", headers={"Authorization": f"Bearer {created['key']}"})
+    assert resp.status_code == 403
+
+
+def test_key_con_admin_incluye_read_y_pasa(tmp_path):
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("root", scopes=("admin",))
+    with make_client(store) as client:
+        resp = client.post("/mcp", headers={"Authorization": f"Bearer {created['key']}"})
+    assert resp.status_code == 200
+
+
+def test_key_sin_alcance_tambien_consume_rate_limit(tmp_path):
+    """El 403 no puede saltarse el rate limit: si el alcance se comprueba antes,
+    una key con alcance inválido recibe 403 sin gastar presupuesto y puede
+    martillear el endpoint sin límite."""
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("parcial", scopes=("nada",))
+    headers = {"Authorization": f"Bearer {created['key']}"}
+    with make_client(store, rate_limit_per_min=2) as client:
+        assert client.post("/mcp", headers=headers).status_code == 403
+        assert client.post("/mcp", headers=headers).status_code == 403
+        assert client.post("/mcp", headers=headers).status_code == 429
+
+
+def test_healthz_no_mira_alcances(tmp_path):
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("parcial", scopes=("nada",))
+    with make_client(store) as client:
+        resp = client.get("/healthz", headers={"Authorization": f"Bearer {created['key']}"})
+    assert resp.status_code == 200
+
+
 class FakeMCP:
     def streamable_http_app(self):
         return Starlette(routes=[Route("/mcp", ok, methods=["POST"])])

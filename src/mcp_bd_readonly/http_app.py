@@ -92,6 +92,21 @@ class ApiKeyMiddleware:
             await send({"type": "http.response.body", "body": body})
             return
 
+        # El alcance se guardaba, se testeaba con KeyInfo.allows() y jamás se
+        # aplicaba aquí: sin esta comprobación, una key sin 'read' tenía el mismo
+        # poder que una con él y --scopes era decorativo.
+        # Va DESPUÉS del rate limit a propósito: si no, una key con alcance
+        # inválido recibiría 403 sin gastar presupuesto y podría martillear el
+        # endpoint (lookup SQLite + sha256 por petición) sin límite alguno.
+        if not info.allows("read"):
+            start, body = _json_response(
+                send, 403,
+                {"error": "forbidden", "detail": "La API key no tiene el alcance 'read'."},
+            )
+            await start
+            await send({"type": "http.response.body", "body": body})
+            return
+
         scope.setdefault("state", {})
         scope["state"]["api_key_id"] = info.key_id
         scope["state"]["api_key_name"] = info.name
