@@ -126,6 +126,21 @@ sudo -u mcp /opt/mcp-optima-bd/.venv/bin/python -m mcp_bd_readonly.auth \
      --db /var/lib/mcp-optima-bd/api_keys.db create --name finanzas --ttl-days 90
 ```
 
+### 2.1 Actualizar el servicio (ya instalado)
+
+El checkout del servicio está en `/opt/mcp-optima-bd` y pertenece a `mcp`:
+
+```bash
+sudo -u mcp git -C /opt/mcp-optima-bd fetch --tags
+sudo -u mcp git -C /opt/mcp-optima-bd checkout <tag>
+sudo -u mcp /opt/mcp-optima-bd/.venv/bin/pip install -q -e /opt/mcp-optima-bd
+sudo systemctl restart mcp-optima-bd
+curl -s http://127.0.0.1:8443/healthz
+```
+
+El `.env` de producción vive en `/etc/mcp-optima-bd/mcp.env` (0640 root:mcp) y
+**no** se toca al actualizar el código.
+
 ## 3. nginx + Cloudflare
 
 ```bash
@@ -142,7 +157,10 @@ nginx raíz.
 ## 4. Aceptación del servicio
 
 ```bash
-curl -s http://127.0.0.1:8443/healthz | jq .          # 200, replica.ok
+curl -s http://127.0.0.1:8443/healthz | jq .          # 200
+# Ojo: con un solo endpoint, healthz dice "destino":"primario" aunque la BD sea
+# la réplica; no hay router a un segundo host porque el usuario tiene tope de 3
+# conexiones.
 curl -s -o /dev/null -w '%{http_code}\n' -X POST \
      -H 'content-type: application/json' -d '{}' \
      https://mcp-back.optimaonline.eu/mcp              # 401
