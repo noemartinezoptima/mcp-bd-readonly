@@ -15,6 +15,27 @@ No es un site Laravel: Forge no gestiona el proceso, solo (opcionalmente) el vho
 | TLS | cert de origen CF `*.optimaonline.eu` | ya existe en el ecosistema |
 | Excel | `contenido_b64` en la petición, procesado en memoria | el servidor no guarda ni lee ficheros |
 
+## Estado verificado del standby (30-oct-2026)
+
+Comprobado por SSH en `optimaback-standby`, sin modificar nada:
+
+- MySQL 8.4.9 con la réplica de `10.0.0.5` **ya activa**: `Replica_IO_Running=Yes`,
+  `Replica_SQL_Running=Yes`, `Seconds_Behind_Source=1`, `super_read_only=ON`.
+- Disco: **122 GB libres** en `/`. El sembrado no hace falta.
+- Python 3.12.3 con `venv` OK; nginx 1.31.1.
+- **No** existen el usuario `mcp` ni `/var/lib/mcp-optima-bd`.
+- Sigue el vhost viejo de `back.optimaonline.eu` apuntando a
+  `/home/forge/back.optimaonline.eu` (retirar antes de D2).
+
+Consecuencia: **D0 queda tachado**; los scripts de `deploy/replica/` se conservan
+solo para reconstruir la réplica si se cae más allá de la retención del binlog.
+
+**Hallazgo que bloquea D1**: `CREATE USER` falla en el standby con
+`ERROR 1290 (HY000) ... --super-read-only` (probado). El usuario `back_readonly`
+tiene que crearse **en el primario** y llega por replicación. En
+`optimaback-active` el usuario `forge` no tiene acceso a MySQL
+(`ERROR 1045`), así que ese paso requiere una sesión con `sudo mysql` allí.
+
 ## 1. Pre-flight (antes de tocar servidores)
 
 ```bash
@@ -27,9 +48,11 @@ git tag -a mcp-remote-v0.1 -m "MCP remoto: replica + API keys"
 
 - [ ] Los 305 tests pasan en local y en CI.
 - [ ] `deploy/mcp.env.example` revisado; ningún secreto en el repo.
-- [ ] Ventana acordada para el sembrado (paso D0), fuera de facturación.
+- [x] Réplica del standby verificada (lag 1 s, `super_read_only=ON`, 122 GB libres).
+- [ ] `back_readonly` creado **en el primario** con `sudo mysql` (la réplica lo
+      rechaza con 1290) y confirmado luego en el standby.
 - [ ] Snapshot de usuarios MySQL del primario: `SELECT user,host FROM mysql.user;`
-      (para poder revertir el paso D0 con precisión).
+      (para poder revertir con precisión).
 
 ## 2. Cómo llega el código al servidor
 
@@ -68,7 +91,10 @@ Nota: `sudo systemctl restart` requiere una regla de sudoers acotada a esa unida
 
 ## 3. Fases, en este orden
 
-### D0 — Réplica (ver `deploy/README.md` §1)
+### D0 — Réplica ~~(ver `deploy/README.md` §1)~~ — YA HECHA
+
+La réplica de `optimaback-standby` está sana y al día (ver arriba). **No ejecutar
+el sembrado**: solo aplica si hubiera que reconstruirla desde cero.
 
 ```bash
 mysql < deploy/replica/01-usuario-replicacion.sql            # primario
@@ -140,11 +166,12 @@ Una clave por consumidor (`--name` distinto). Migrar de uno en uno, verificando
 
 ## 6. Riesgos del despliegue
 
-- **Sembrado de 55,4 GB**: único paso con impacto en el primario (lectura).
-  Medir con `pv -l` y parar si el load sube de forma sostenida.
+- **Sembrado**: no aplica en este despliegue (la réplica ya está activa). Si
+  hubiera que rehacerla, es el único paso con impacto en el primario (lectura):
+  medir con `pv -l` y parar si el load sube de forma sostenida.
 - **Binlog retenido 30 días**: una réplica caída más de ese plazo exige re-sembrar.
-- **Disco del standby**: quedan ~66 GB tras la réplica; sin margen para dos
-  re-sembrados seguidos.
+- **Disco del standby**: 122 GB libres (63 % usado); sin margen para dos
+  re-sembrados completos seguidos.
 - **Failover**: si el standby asciende a primario, el router debe apuntar a
   Active; hoy lo detecta por `read_only=0` + `SHOW REPLICA STATUS` vacío.
 - **App vieja en el standby**: existe un vhost `back.optimaonline.eu` con

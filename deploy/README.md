@@ -21,6 +21,10 @@ Cliente ──HTTPS──▶ Cloudflare ──▶ nginx (standby) ──▶ uvic
 
 ## 1. Réplica (en el standby)
 
+> **En `optimaback-standby` esta sección ya está cumplida**: la réplica existe y
+> está sana (lag 1 s). Salta a §2. Los pasos de abajo son para reconstruirla
+> desde cero.
+
 ```bash
 # 1.1 usuario de replicación (en el PRIMARIO, como root)
 mysql < deploy/replica/01-usuario-replicacion.sql
@@ -47,12 +51,22 @@ SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='back';  -- 39
 INSERT INTO back.facturas_venta (id) VALUES (0);  -- ERROR 1290: super_read_only
 ```
 
-Usuario de lectura para el MCP (en la réplica):
+Usuario de lectura para el MCP — **se crea en el PRIMARIO**, no en la réplica: con
+`super_read_only` el `CREATE USER` local falla con `ERROR 1290`, probado el
+30-oct-2026. Llega al standby por replicación y allí solo se verifica.
 
 ```sql
-CREATE USER 'back_readonly'@'127.0.0.1' IDENTIFIED BY '<PASSWORD>';
+-- PRIMARIO
+CREATE USER 'back_readonly'@'127.0.0.1' IDENTIFIED BY '<PASSWORD>' REQUIRE SSL;
 GRANT SELECT ON back.* TO 'back_readonly'@'127.0.0.1';
+
+-- STANDBY: comprobar que replicó y que solo lee
+SELECT user, host FROM mysql.user WHERE user = 'back_readonly';
+SHOW GRANTS FOR 'back_readonly'@'127.0.0.1';   -- solo SELECT ON back.*
 ```
+
+Ya hay un secreto generado y guardado en el standby (`/home/forge/.mcp-back_readonly.pass`,
+modo 0600); se puede reutilizar en el primario en vez de generar otro.
 
 ## 2. Servicio (en el standby)
 
