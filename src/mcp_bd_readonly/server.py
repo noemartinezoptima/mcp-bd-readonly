@@ -13,6 +13,7 @@ from mcp_bd_readonly.tools_core import build_tools, build_glosario_tools
 from mcp_bd_readonly.esquema_snapshot import build_schema_tools
 from mcp_bd_readonly.catalogo_queries import build_queries_tools
 from mcp_bd_readonly.memoria import build_memoria_tools
+from mcp_bd_readonly.prompts import build_prompts
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
 from mcp_bd_readonly.tools_auditoria import build_auditoria_tools
 from mcp_bd_readonly.tools_catalogo import build_catalogo_tools
@@ -28,11 +29,19 @@ from mcp_bd_readonly.tools_excel import (
     check_excel_capabilities, leer_excel, resumen_excel, reconciliar_excel_bd,
 )
 
+# Se envía en CADA initialize, así que aquí solo caben las trampas duras y el
+# puntero a los guiones; el detalle vive en prompts.py, que se carga bajo demanda.
 INSTRUCTIONS = (
     "MCP Optima BD — acceso SOLO-LECTURA a la BD de Optima (back): facturas, OT, "
     "cobros, remesas, establecimientos. Guard read-only: jamás ejecuta "
     "INSERT/UPDATE/DELETE/DDL. Consulta en lenguaje natural; usa run_query o las "
-    "tools del catálogo."
+    "tools del catálogo.\n"
+    "ANTES de escribir SQL llama resolve_domain_term(tu pregunta en español): te "
+    "devuelve tabla, tool y trampas. Tres errores que se repiten: base_euros solo "
+    "existe en la tabla ots; efectos_pago es polimórfico (12=venta, 11=compra) y no "
+    "tiene cliente_id, su fecha es fecha_pagado; no existe cobros_remesas. "
+    "Guiones completos en prompts/list: sql_seguro, iva_trimestral, riesgo_cobros, "
+    "ot_abiertas."
 )
 
 
@@ -107,6 +116,9 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     if not remote:
         mcp.tool()(setup_ssh)
     mcp.tool()(detectar_agente)
+
+    # Guiones MCP: el agente los pide con prompts/get, no viajan en el handshake.
+    build_prompts(mcp)
 
     # Excel: en remoto no se leen rutas del servidor; el contenido llega en
     # base64 y se procesa en memoria (cero escritura en disco).

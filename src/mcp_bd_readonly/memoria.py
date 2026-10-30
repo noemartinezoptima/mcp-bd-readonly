@@ -9,6 +9,14 @@ def _norm(s: str) -> str:
     return " ".join(s.lower().split())
 
 
+# Palabras funcionales cortas. Sin filtrarlas, "de" aparece en casi cualquier
+# frase en español y cualquier búsqueda devuelve la memoria entera.
+_STOP_CORTO = frozenset({
+    "de", "la", "el", "los", "las", "un", "una", "y", "en", "al",
+    "se", "su", "es", "lo", "o", "a",
+})
+
+
 class Memoria:
     def __init__(self, data_dir: Path):
         self.path = Path(data_dir) / "memoria.json"
@@ -36,7 +44,20 @@ class Memoria:
         scored = []
         for e in self._load():
             hay = _norm(f"{e.get('frase','')} {e.get('resumen','')} {e.get('query','')}")
-            hit = sum(1 for t in tokens if t in hay)
+            palabras = set(hay.split())
+            hit = 0
+            for t in tokens:
+                if len(t) >= 3:
+                    # Substring a propósito: sigue encontrando "factura" dentro
+                    # de "facturas" sin tener que hacer stemming.
+                    if t in hay:
+                        hit += 1
+                elif t not in _STOP_CORTO and t in palabras:
+                    # Los tokens cortos solo como palabra entera: si no, "ot"
+                    # cae dentro de "total_euros" y una búsqueda de OT devuelve
+                    # memorias de IVA. Se salvan las de 1-2 letras que sí son
+                    # consultas reales ("x", "ot").
+                    hit += 1
             if hit:
                 scored.append((hit, e))
         scored.sort(key=lambda x: -x[0])
