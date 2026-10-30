@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from mcp_bd_readonly.db import QueryExecutor, _convert, _retryable
+from mcp_bd_readonly.db import MAX_ROWS, QueryExecutor, _convert, _retryable
 from mcp_bd_readonly.security import ReadOnlyViolation
 
 
@@ -66,7 +66,7 @@ def test_run_appends_limit(monkeypatch):
     cur = FakeCursor([{"a": 1}], ["a"])
     monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
     ex.run("SELECT a FROM t")
-    assert cur.executed == "SELECT a FROM t LIMIT 100"
+    assert cur.executed == "SELECT a FROM t\nLIMIT 100"
 
 
 def test_run_appends_custom_limit(monkeypatch):
@@ -74,7 +74,7 @@ def test_run_appends_custom_limit(monkeypatch):
     cur = FakeCursor([], ["a"])
     monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
     ex.run("SELECT a FROM t", limit=5)
-    assert cur.executed == "SELECT a FROM t LIMIT 5"
+    assert cur.executed == "SELECT a FROM t\nLIMIT 5"
 
 
 def test_run_keeps_existing_limit(monkeypatch):
@@ -182,12 +182,65 @@ def test_describe_wrapper(monkeypatch):
     assert rows[0]["Field"] == "id"
 
 
-def test_run_skips_clamp_when_limit_none(monkeypatch):
+def test_run_limit_none_acota_con_tope_duro(monkeypatch):
     ex = make_executor()
     cur = FakeCursor([], ["a"])
     monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
     ex.run("SELECT a FROM t", limit=None)
-    assert cur.executed == "SELECT a FROM t"
+    assert cur.executed == f"SELECT a FROM t\nLIMIT {MAX_ROWS + 1}"
+
+
+def test_run_no_confunde_columna_limit_con_limite(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT a FROM t WHERE credit_limit > 0")
+    assert cur.executed == "SELECT a FROM t WHERE credit_limit > 0\nLIMIT 100"
+
+
+def test_run_no_confunde_literal_limit_con_limite(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT a FROM t WHERE nombre = 'sin limit'")
+    assert cur.executed == "SELECT a FROM t WHERE nombre = 'sin limit'\nLIMIT 100"
+
+
+def test_run_rechaza_limit_por_encima_del_maximo(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    with pytest.raises(ValueError) as ctx:
+        ex.run(f"SELECT a FROM t LIMIT {MAX_ROWS + 1}")
+    assert "máximo" in str(ctx.value)
+    assert cur.executed is None
+
+
+def test_run_limit_tras_comentario_no_queda_comentado(monkeypatch):
+    """Un `--` al final se tragaría el LIMIT si se añadiera en la misma línea."""
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT a FROM t -- nota final")
+    assert cur.executed == "SELECT a FROM t -- nota final\nLIMIT 100"
+    assert "\nLIMIT" in cur.executed
+
+
+def test_run_respeta_limit_con_placeholder(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([], ["a"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    ex.run("SELECT a FROM t LIMIT %s", [10], limit=None)
+    assert cur.executed == "SELECT a FROM t LIMIT %s"
+
+
+def test_run_falla_si_limit_none_desborda(monkeypatch):
+    ex = make_executor()
+    cur = FakeCursor([{"x": i} for i in range(MAX_ROWS + 1)], ["x"])
+    monkeypatch.setattr(ex, "_conn", lambda: FakeConn(cur))
+    with pytest.raises(ValueError) as ctx:
+        ex.run("SELECT x FROM t", limit=None)
+    assert str(MAX_ROWS) in str(ctx.value)
 
 
 def test_run_no_sql_limit_on_show(monkeypatch):

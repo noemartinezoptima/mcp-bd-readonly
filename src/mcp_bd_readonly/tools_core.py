@@ -27,7 +27,8 @@ def build_tools(executor: QueryExecutor, audit: AuditLogger):
         return rows
 
     def run_query(query: str, limit: int | None = 100) -> dict:
-        """SQL solo-lectura; devuelve {columns, rows} (JSON). limit = nº máximo de filas (default 100); None = todo.
+        """SQL solo-lectura; devuelve {columns, rows} (JSON). limit = nº máximo de filas (default 100);
+        None = todas, con tope duro de 50.000 filas (por encima devuelve error: agrega o filtra).
         limit 0 o negativo NO es válido: para contar usa una query con COUNT(*)."""
         audit and audit.record("run_query", "mcp", query)
         if limit is not None:

@@ -4,14 +4,17 @@ version = "0.1.0"
 description = "MCP Optima BD — servidor MySQL SOLO-LECTURA para consultas de finanzas, OT y establecimientos"
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=1.0,<2",
+    # SDK oficial: incluye transporte streamable-http. Se usa directamente
+    # en vez del wrapper fastmcp 1.x, que solo ofrece stdio/sse.
+    "mcp>=1.30,<2",
+    "uvicorn>=0.30,<1",
     "pymysql>=1.1,<2",
     "openpyxl>=3.1.5,<4",
     "formualizer>=0.9,<1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
 mcp-optima-bd = "mcp_bd_readonly.server:main"

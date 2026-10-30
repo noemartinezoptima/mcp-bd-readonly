@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from decimal import Decimal
 
 sys.path.insert(0, os.path.dirname(__file__) + "/../src")
 
@@ -31,6 +32,7 @@ def make_workbook(path, with_formulas=True):
     ws2 = wb.create_sheet("Totales")
     ws2["A1"] = "Gran total"
     ws2["B1"] = "=Conciliacion!D5"
+    ws2.merge_cells("C1:D1")
     wb.save(path)
 
 
@@ -63,6 +65,29 @@ class TestLeerExcel(unittest.TestCase):
         assert by_ref["D2"]["f"] == "=B2+C2"
         assert by_ref["A2"]["v"] == "MANGO"
         assert by_ref["B2"]["v"] == 1000
+
+    def test_merged_ranges_por_hoja(self):
+        """Cada hoja trae SUS rangos combinados, no los de la primera."""
+        r = tools_excel.leer_excel(self.xlsx, include_formulas=False,
+                                   force_recalc=False)
+        assert r.get("error") is None
+        por_nombre = {s["name"]: s["merged_ranges"] for s in r["sheets"]}
+        assert por_nombre["Conciliacion"] == ["F1:G2"]
+        assert por_nombre["Totales"] == ["C1:D1"]
+
+    def test_deteccion_de_formulas_desconocida_fuerza_recalculo(self):
+        """Si no se puede detectar fórmulas, no se asume que no hay."""
+        from unittest.mock import patch
+
+        with patch.object(tools_excel, "_detect_formulas", return_value={
+                "has_formulas": None, "per_sheet": {}, "total": 0, "error": "boom"}), \
+             patch.object(tools_excel, "_smart_recalc", return_value={
+                "recalculated": False, "engine": "cached_only",
+                "warning": "sin motor"}) as recalc:
+            r = tools_excel.leer_excel(self.xlsx, force_recalc=True)
+        assert recalc.called
+        assert r["has_formulas"] is None
+        assert r["formulas_error"] == "boom"
 
     def test_original_no_se_modifica(self):
         tools_excel.leer_excel(self.xlsx, include_formulas=True,
@@ -158,6 +183,21 @@ class TestReconciliarExcelBd(unittest.TestCase):
         assert r["n_diff"] == 1
         diff_row = next(d for d in r["diferencias"] if d["clave"] == "F2")
         assert diff_row["estado"] == "DIFF"
+
+    def test_duplicados_no_se_colapsan(self):
+        excel_rows = [
+            {"codigo": "F1", "importe": 100.00},
+            {"codigo": "F1", "importe": 50.00},
+        ]
+        bd_rows = [{"codigo": "F1", "importe": 150.00}]
+        r = tools_excel.reconciliar_excel_bd(excel_rows, bd_rows, "codigo", "importe")
+        fila = r["diferencias"][0]
+        assert fila["estado"] == "DUPLICADO"
+        assert fila["n_lineas_excel"] == 2
+        assert fila["importe_excel"] == Decimal("150.00")
+        assert r["n_duplicados"] == 1
+        assert r["totales"]["diff"] == Decimal("0.00")
+        assert r["n_diff"] == 1
 
     def test_reconcilia_solo_excel_y_solo_bd(self):
         excel_rows = [{"codigo": "F1", "importe": 100.00}]

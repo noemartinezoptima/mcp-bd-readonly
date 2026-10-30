@@ -1,0 +1,50 @@
+[Unit]
+Description=MCP Optima BD (solo lectura, transporte HTTP)
+Documentation=file:///opt/mcp-optima-bd/deploy/README.md
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mcp
+Group=mcp
+WorkingDirectory=/opt/mcp-optima-bd
+
+# Secretos: 0600 root:mcp. Nunca en el repo ni en el unit.
+EnvironmentFile=/etc/mcp-optima-bd/mcp.env
+
+ExecStart=/opt/mcp-optima-bd/.venv/bin/mcp-optima-bd --transport http
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# --- endurecimiento ---------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+# Único sitio escribible: auditoría y claves.
+ReadWritePaths=/var/lib/mcp-optima-bd
+
+# El MCP comparte host con MySQL: nunca debe poder comerse la RAM de producción.
+MemoryMax=512M
+MemoryHigh=384M
+CPUQuota=50%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcp-optima-bd
+
+[Install]
+WantedBy=multi-user.target

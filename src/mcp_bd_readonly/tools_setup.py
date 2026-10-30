@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 
 HOST = os.environ.get("SSH_HOST", "db-host")
@@ -13,6 +14,24 @@ def _key_path(key_path: str | None = None) -> str:
 
 def _ssh_cfg_path() -> str:
     return os.path.expanduser("~/.ssh/config")
+
+
+_HOST_RE = re.compile(r"^[A-Za-z0-9._-]{1,253}$")
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9._:-]{1,253}$")
+_USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _validar(nombre: str, valor: str, patron: re.Pattern) -> None:
+    """Rechaza valores que rompan el bloque de ~/.ssh/config.
+
+    host/hostname/user se interpolan en el fichero: un salto de línea inyectaría
+    directivas (p. ej. ProxyCommand) y se ejecutaría en el siguiente ssh.
+    """
+    if not isinstance(valor, str) or not patron.match(valor):
+        raise ValueError(
+            f"setup_ssh: {nombre} inválido ({valor!r}); "
+            "solo se permiten letras, dígitos y . _ - : sin espacios ni saltos de línea"
+        )
 
 
 def _config_block(key: str, host: str, hostname: str, user: str) -> str:
@@ -68,6 +87,12 @@ def setup_ssh(
     user = user or USER
     key = _key_path(key_path)
     cfg = _ssh_cfg_path()
+
+    _validar("host", host, _HOST_RE)
+    _validar("hostname", hostname, _HOSTNAME_RE)
+    _validar("user", user, _USER_RE)
+    if "\n" in key or "\r" in key:
+        raise ValueError(f"setup_ssh: key_path inválido ({key!r})")
     steps = []
     generated = False
 

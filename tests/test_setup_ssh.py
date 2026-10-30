@@ -71,6 +71,21 @@ class TestSetupSsh(unittest.TestCase):
         assert "User deploy" in cfg
         assert "IdentityFile " + key in cfg
 
+    def test_rechaza_host_con_salto_de_linea(self):
+        """Un host con \n inyectaria directivas (ProxyCommand) en ~/.ssh/config."""
+        with self.assertRaises(ValueError):
+            tools_setup.setup_ssh(
+                email="x@y.z",
+                confirmar=True,
+                host="ok\nHost *\n  ProxyCommand touch /tmp/pwned",
+            )
+        assert not os.path.exists(os.path.join(self.home, ".ssh", "config"))
+
+    def test_rechaza_user_con_espacios(self):
+        with self.assertRaises(ValueError):
+            tools_setup.setup_ssh(email="x@y.z", confirmar=True, user="root extra")
+        assert not os.path.exists(os.path.join(self.home, ".ssh", "config"))
+
 
 if __name__ == "__main__":
     unittest.main()

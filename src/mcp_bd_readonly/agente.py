@@ -9,13 +9,13 @@ Fallback (heurístico, frágil): variables de entorno que cada agente setea al
 spawn. Puede dar falsos positivos si varios agentes conviven en la misma shell.
 
 NOTA: sin `from __future__ import annotations` a propósito: FastMCP detecta el
-parámetro de Context por identidad (`param.annotation is fastmcp.Context`), y las
+parámetro de Context por identidad (`param.annotation is Context`), y las
 anotaciones diferidas (strings) rompen esa detección.
 """
 
 import os
 
-from fastmcp import Context
+from mcp.server.fastmcp import Context
 
 
 def detectar_por_contexto(ctx: Context | None) -> str | None:

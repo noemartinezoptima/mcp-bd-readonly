@@ -111,6 +111,24 @@ def test_facturas_venta_basic():
     assert list_limit is None
 
 
+def test_facturas_venta_base_derivada_no_base_moneda():
+    """base debe ser EUR (total − iva), no base_moneda (divisa de la factura)."""
+    ex = FakeEx(
+        default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
+        default_rows=[{
+            "codigo": "FX-1", "fecha_factura": "2026-08-01",
+            "base_moneda": Decimal("900.00"),  # USD, no EUR
+            "iva_euros": Decimal("210.00"),
+            "total_euros": Decimal("1210.00"),
+            "estado_id": 1,
+        }],
+    )
+    f = facturas_venta(ex, "2026-08-01", "2026-08-31")["facturas"][0]
+    assert f["base"] == Decimal("1000.00")
+    assert f["base_divisa"] == Decimal("900.00")
+    assert f["base"] + f["iva"] == f["total"]
+
+
 def test_facturas_venta_with_client():
     ex = FakeEx(
         default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],

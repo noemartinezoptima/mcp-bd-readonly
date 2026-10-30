@@ -24,12 +24,17 @@ def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None, max_n: int = 200)
     _, rows = ex.run(sql, params + [int(max_n)], limit=None)
     out = []
     for r in rows:
+        total_linea = _dec(r["total_euros"]).quantize(Decimal("0.01"))
+        iva_linea = _dec(r["iva_euros"]).quantize(Decimal("0.01"))
         out.append({
             "codigo": r["codigo"],
             "fecha": str(r["fecha_factura"]),
-            "base": _dec(r["base_moneda"]).quantize(Decimal("0.01")),
-            "iva": _dec(r["iva_euros"]).quantize(Decimal("0.01")),
-            "total": _dec(r["total_euros"]).quantize(Decimal("0.01")),
+            # base en EUR derivada (facturas_venta no tiene base_euros);
+            # base_moneda es la base en la divisa de la factura, no en euros.
+            "base": (total_linea - iva_linea).quantize(Decimal("0.01")),
+            "base_divisa": _dec(r["base_moneda"]).quantize(Decimal("0.01")),
+            "iva": iva_linea,
+            "total": total_linea,
             "estado_id": r["estado_id"],
         })
     return {"facturas": out, "total_periodo": total, "total_periodo_es": fmt_money(total),
