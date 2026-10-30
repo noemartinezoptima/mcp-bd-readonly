@@ -60,18 +60,46 @@ el PRIMARIO**, no en la réplica: con `super_read_only` el `CREATE USER` local
 falla con `ERROR 1290` (probado el 30-oct-2026). Llega al standby por replicación
 y allí solo se verifica. Lo hace todo `deploy/crear-back_readonly.sh`.
 
-```sql
--- PRIMARIO
-CREATE USER 'back_readonly'@'127.0.0.1' IDENTIFIED BY '<PASSWORD>' REQUIRE SSL;
-GRANT SELECT ON back.* TO 'back_readonly'@'127.0.0.1';
+```bash
+# en el PRIMARIO (pide la contraseña de sudo)
+ssh -t optimaback-active 'bash ~/crear-back_readonly.sh'
 
--- STANDBY: comprobar que replicó y que solo lee
+# y en el STANDBY, comprobar que replicó y que solo lee
 SELECT user, host FROM mysql.user WHERE user = 'back_readonly';
 SHOW GRANTS FOR 'back_readonly'@'127.0.0.1';   -- solo SELECT ON back.*
 ```
 
+Sin `REQUIRE SSL`: el cliente (`pymysql`) no negocia TLS y la conexión es de
+loopback, en el mismo host. Con SSL obligatorio el servicio no podría autenticarse.
+
 Ya hay un secreto generado y guardado en el standby (`/home/forge/.mcp-back_readonly.pass`,
 modo 0600); se puede reutilizar en el primario en vez de generar otro.
+
+### 1.5 Cómo se conecta el MCP (por qué en el servidor no hay túnel)
+
+El MCP vive **en el mismo host que MySQL**, así que habla con `127.0.0.1:3306`
+y punto: no hay túnel, ni SSH, ni puerto que abrir (`TUNNEL_ENABLED=false`).
+
+```
+[ MCP (systemd) ] --TCP 127.0.0.1:3306--> [ mysqld réplica ]     mismo host, sin túnel
+```
+
+El túnel es solo para **tu portátil**, porque MySQL no está publicado:
+
+```bash
+ssh -L 3306:127.0.0.1:3306 forge@167.233.70.237   # abre el puerto en TU máquina
+mysql -h 127.0.0.1 -P 3306 -u direccion -p         # aquí sí: el tráfico va cifrado por SSH
+```
+
+Si algún día el MCP se mueve a otro host:
+
+| Escenario | Cómo se conecta |
+|---|---|
+| Otro host de la red privada (`10.0.0.x`) | MySQL escucha además en su IP privada + `GRANT` para ese host + firewall cerrado a todo lo demás |
+| Fuera de esa red | Túnel SSH o VPN; **nunca** abrir 3306 a internet |
+
+Nota: el `.env` del MCP (`/home/forge/mcp-optima-bd/.env`) es independiente del
+`.env` de la plataforma (`back.optimaonline.eu`), que no se toca.
 
 ## 2. Servicio (en el standby)
 

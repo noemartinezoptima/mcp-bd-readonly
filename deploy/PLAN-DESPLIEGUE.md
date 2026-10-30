@@ -24,8 +24,9 @@ Comprobado por SSH en `optimaback-standby`, sin modificar nada:
 - Disco: **122 GB libres** en `/`. El sembrado no hace falta.
 - Python 3.12.3 con `venv` OK; nginx 1.31.1.
 - **No** existen el usuario `mcp` ni `/var/lib/mcp-optima-bd`.
-- Sigue el vhost viejo de `back.optimaonline.eu` apuntando a
-  `/home/forge/back.optimaonline.eu` (retirar antes de D2).
+- Convive con la plataforma: `back.optimaonline.eu` es un site de Forge de
+  producción en este servidor y **no se toca** (ni su vhost ni su `.env`). El
+  MCP usa su propio `server_name`, su propio proceso y su propio directorio.
 
 Consecuencia: **D0 queda tachado**; los scripts de `deploy/replica/` se conservan
 solo para reconstruir la réplica si se cae más allá de la retención del binlog.
@@ -187,8 +188,9 @@ Una clave por consumidor (`--name` distinto). Migrar de uno en uno, verificando
   re-sembrados completos seguidos.
 - **Failover**: si el standby asciende a primario, el router debe apuntar a
   Active; hoy lo detecta por `read_only=0` + `SHOW REPLICA STATUS` vacío.
-- **App vieja en el standby**: existe un vhost `back.optimaonline.eu` con
-  código antiguo y el `.env` de producción. Retirarlo antes de D2.
+- **Convivencia con la plataforma**: `back.optimaonline.eu` sigue sirviendo en
+  este host. El vhost del MCP solo añade un `server_name` distinto, así que
+  nginx no altera el site existente. Nunca se editan su `.env` ni su código.
 
 ## 7. Checklist final
 
