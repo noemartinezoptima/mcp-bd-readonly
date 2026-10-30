@@ -143,16 +143,63 @@ El `.env` de producción vive en `/etc/mcp-optima-bd/mcp.env` (0640 root:mcp) y
 
 ## 3. nginx + Cloudflare
 
+Un solo comando, con validación previa y rollback automático:
+
 ```bash
-sudo cp deploy/nginx/mcp-back.optimaonline.eu.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/mcp-back.optimaonline.eu.conf /etc/nginx/sites-enabled/
-# certificado de origen ya existente en /etc/nginx/ssl/
-sudo nginx -t && sudo systemctl reload nginx
+scp deploy/instalar-nginx.sh deploy/nginx/mcp-back.optimaonline.eu.conf optimaback-standby:~
+ssh -t optimaback-standby 'sudo bash ~/instalar-nginx.sh'
 ```
+
+El instalador escribe **dos** ficheros y los quita juntos si algo falla:
+
+| Fichero | Para qué |
+|---|---|
+| `/etc/nginx/sites-available/mcp-back.optimaonline.eu.conf` | vhost (proxy a `127.0.0.1:8443`) |
+| `/etc/nginx/conf.d/mcp-cloudflare-geo.conf` | `geo` con los rangos de Cloudflare |
+
+Si `nginx -t` falla, borra ambos enlaces y **no recarga** nada: nginx sigue con la
+configuración anterior.
+
+### Por qué hay un fichero `geo` y no `allow`/`deny`
+
+El servidor ya aplica `real_ip` de Cloudflare (`/etc/nginx/conf.d/cloudflare.conf`,
+22 rangos), así que `$remote_addr` es la IP del **visitante**, no la del proxy.
+Un `allow <rangos de Cloudflare>` evaluado contra `$remote_addr` no coincidiría
+nunca: la petición llegaría con la IP del cliente y el vhost devolvería 403 a
+todo el mundo. Por eso el control va sobre el peer original
+(`$realip_remote_addr`) mediante `geo`, y el vhost corta con
+`if ($mcp_from_cloudflare = 0) { return 403; }`.
+
+Los rangos **no** se descargan de internet: se derivan de los `set_real_ip_from`
+que Forge ya mantiene, y solo si no hubiera ninguno se descargan. Sin rangos
+válidos el instalador aborta (fail-closed).
+
+No hace falta emitir certificado: se reutiliza el de origen de Cloudflare que ya
+sirve la plataforma (`/etc/nginx/ssl/back.optimaonline.eu/3521089/`,
+SAN `*.optimaonline.eu`).
 
 DNS: `mcp-back.optimaonline.eu` proxied (naranja) en Cloudflare, SSL = Full (strict).
 **Fijar el nombre antes de crear el site**: renombrar en Forge no actualiza el
 nginx raíz.
+
+### Verificación hecha antes de instalar
+
+- `nginx -t` real (nginx 1.31.1) con el geo generado de los 22 rangos: OK.
+- Proxy completo en puertos altos, sin tocar `/etc`: `/healthz` → 200,
+  `POST /mcp` sin clave → 401, con clave → 200 (`serverInfo.mcp-optima-bd`).
+- Geo cerrado (peer no listado) → 403, también en `/healthz`.
+- Certificado presentado: `CloudFlare Origin Certificate`, SAN `*.optimaonline.eu`.
+- El `Host` público ya está admitido por la app (no hace falta tocar
+  `MCP_ALLOWED_HOSTS`).
+
+Rollback total:
+
+```bash
+sudo rm -f /etc/nginx/sites-enabled/mcp-back.optimaonline.eu.conf \
+           /etc/nginx/sites-available/mcp-back.optimaonline.eu.conf \
+           /etc/nginx/conf.d/mcp-cloudflare-geo.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ## 4. Aceptación del servicio
 
