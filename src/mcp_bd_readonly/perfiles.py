@@ -21,12 +21,16 @@ import logging
 log = logging.getLogger(__name__)
 
 # Siempre presentes: sin ellas no se puede trabajar en ningún dominio.
+# `consultar_memoria` es una de ellas: lo aprendido al corregir una frase vale
+# igual en contabilidad que en operaciones, y con ella en SOLO_TODAS un perfil
+# de dominio dejaba el entrenamiento inaccesible ("Unknown tool").
 CORE = frozenset({
     "list_databases",
     "list_tables",
     "describe_table",
     "run_query",
     "resolve_domain_term",
+    "consultar_memoria",
 })
 
 CONTABILIDAD = frozenset({
@@ -63,7 +67,6 @@ SOLO_TODAS = frozenset({
     "refresh_schema",
     "find_related_queries",
     "recordar_consulta",
-    "consultar_memoria",
     "detectar_agente",
     "setup_ssh",
 })

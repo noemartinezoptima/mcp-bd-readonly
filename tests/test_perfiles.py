@@ -38,17 +38,22 @@ def test_sin_perfil_registra_todas_las_tools(tmp_path):
     assert len(_nombres(tmp_path, "todas")) == 38
 
 
-def test_perfil_contabilidad_deja_20_tools(tmp_path):
+def test_perfil_contabilidad_deja_21_tools(tmp_path):
     nombres = _nombres(tmp_path, "contabilidad")
     assert nombres == PERFILES["contabilidad"]
-    assert len(nombres) == 20
+    assert len(nombres) == 21
     assert "run_query" in nombres and "balance" in nombres
     assert "stock_actual" not in nombres
+    # El entrenamiento no puede quedar inaccesible con un perfil de dominio:
+    # el cliente recibiría "Unknown tool" al intentar consultar memoria.json.
+    assert "consultar_memoria" in nombres
 
 
 def test_perfiles_de_dominio_mas_pequenos(tmp_path):
-    assert len(_nombres(tmp_path, "operaciones")) == 10
-    assert len(_nombres(tmp_path, "excel")) == 9
+    assert len(_nombres(tmp_path, "operaciones")) == 11
+    assert len(_nombres(tmp_path, "excel")) == 10
+    for perfil in ("operaciones", "excel"):
+        assert "consultar_memoria" in _nombres(tmp_path, perfil)
 
 
 def test_core_presente_en_todos_los_perfiles():
