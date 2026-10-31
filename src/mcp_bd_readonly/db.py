@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pymysql
 
+from mcp_bd_readonly.secure_log import open_append_private
 from mcp_bd_readonly.security import enforce_read_only, LEADING_COMMENTS
 from mcp_bd_readonly.tunnel import TunnelManager
 
@@ -226,8 +227,8 @@ class QueryExecutor:
             return
         try:
             path = Path(data_dir) / "slow_queries.jsonl"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a") as f:
+            # 0600: igual que audit.jsonl, puede llevar literales de negocio.
+            with open_append_private(path) as f:
                 f.write(json.dumps(
                     {"ts": time.time(), "ms": elapsed_ms, "sql": sql},
                     ensure_ascii=False,

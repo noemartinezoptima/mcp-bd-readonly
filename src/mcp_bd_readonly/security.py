@@ -34,6 +34,13 @@ DENIED_SCHEMAS = ("mysql", "performance_schema", "sys")
 
 _STRING = re.compile(r"'(?:[^'\\]|\\.|'')*'|\"(?:[^\"\\]|\\.|\"\")*\"", re.S)
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+# Comentario "ejecutable" de MySQL: `/*! código */` o `/*!50001 código */`.
+# MySQL lo trata como SQL real a ejecutar (no como comentario) si la versión
+# coincide — nuestro _BLOCK_COMMENT genérico sí lo trataba como comentario y
+# descartaba su contenido ANTES de buscar verbos prohibidos, dejando pasar
+# `SELECT 1 /*!50000 ; DELETE FROM x */` porque "delete" nunca llegaba a
+# escanearse. Sin uso legítimo en lectura: se rechaza directamente.
+_EXEC_COMMENT = re.compile(r"/\*!")
 _LINE_COMMENT = re.compile(r"--[^\n]*|#[^\n]*")
 _WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FOR_UPDATE = re.compile(
@@ -74,6 +81,12 @@ def enforce_read_only(sql: str) -> None:
     """Lanza ReadOnlyViolation si la sentencia no es estrictamente de lectura."""
     if not isinstance(sql, str) or not sql.strip():
         raise ReadOnlyViolation("run_query: la query está vacía.")
+
+    if _EXEC_COMMENT.search(sql):
+        raise ReadOnlyViolation(
+            "run_query: los comentarios ejecutables de MySQL (/*! ... */) no están "
+            "permitidos: MySQL los trata como SQL real, no como comentario."
+        )
 
     stmts = _statements(_strip_literals(sql))
     if not stmts:

@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from mcp_bd_readonly.request_ctx import get_api_key
+from mcp_bd_readonly.secure_log import open_append_private
 
 
 class AuditLogger:
@@ -20,5 +21,7 @@ class AuditLogger:
         if who == "mcp" and api_key_id:
             who = api_key_id
         row = {"ts": time.time(), "tool": tool, "who": who, "sql": sql, "note": note}
-        with open(self.path, "a") as f:
+        # 0600: el SQL completo puede llevar literales de negocio (NIFs,
+        # importes, nombres). No debe ser legible por cualquier usuario del host.
+        with open_append_private(self.path) as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")

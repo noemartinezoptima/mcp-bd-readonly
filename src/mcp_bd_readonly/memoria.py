@@ -3,6 +3,8 @@ import time
 import unicodedata
 from pathlib import Path
 
+from mcp_bd_readonly.secure_log import write_text_private
+
 
 def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
@@ -33,8 +35,8 @@ class Memoria:
     def guardar(self, entry: dict) -> dict:
         entries = self._load()
         entries.append(entry)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(entries[-self._limit:], ensure_ascii=False, indent=1))
+        # 0600: guarda resúmenes con cifras de negocio reales (importes, IVA).
+        write_text_private(self.path, json.dumps(entries[-self._limit:], ensure_ascii=False, indent=1))
         return {"guardado": True, "usuaria": entry.get("usuaria", "zerocool"), "total": len(entries)}
 
     def consultar(self, texto: str, limite: int = 5) -> list:

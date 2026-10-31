@@ -106,6 +106,29 @@ def test_rejects_dml_behind_cte_and_locks(bad):
         enforce_read_only(bad)
 
 
+@pytest.mark.parametrize("bad", [
+    # Comentario ejecutable de MySQL: el servidor SÍ corre lo de dentro (no es
+    # un comentario real), pero el strip genérico de comentarios lo descartaba
+    # antes de escanear verbos prohibidos. Bug real, confirmado antes del fix.
+    "SELECT 1 /*!50000 ; DELETE FROM facturas_venta */",
+    "SELECT 1 /*! ; DROP TABLE facturas_venta */",
+    "SELECT * FROM t /*!40000 WHERE 1=1 */; DELETE FROM t",
+])
+def test_rejects_mysql_executable_comment(bad):
+    with pytest.raises(ReadOnlyViolation, match="ejecutable"):
+        enforce_read_only(bad)
+
+
+@pytest.mark.parametrize("ok", [
+    # JSON_TABLE y subconsultas con funciones son lectura legítima, no deben
+    # dispararse como falso positivo por contener palabras parecidas.
+    "SELECT * FROM JSON_TABLE('[1,2,3]', '$[*]' COLUMNS (v INT PATH '$')) AS t",
+    "SELECT * FROM (SELECT COUNT(*) FROM facturas_venta) AS sub",
+])
+def test_allows_exotic_but_safe_reads(ok):
+    enforce_read_only(ok)
+
+
 def test_error_message_names_the_reason():
     with pytest.raises(ReadOnlyViolation, match="delete"):
         enforce_read_only("WITH c AS (SELECT 1) DELETE FROM t")
