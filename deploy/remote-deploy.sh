@@ -32,19 +32,21 @@ runuser -u mcp -- "$REPO/.venv/bin/pip" install -q -e "$REPO"
 systemctl restart mcp-optima-bd
 
 # Reintenta en vez de un sleep fijo: el arranque en frío (pool de conexiones,
-# registro de ~37 tools) puede tardar más de 1s y el primer disparo real
-# (31-oct-2026) dio un falso negativo aquí con el servicio ya sano.
+# registro de ~37 tools) es variable y los dos primeros disparos reales
+# (31-oct-2026) dieron falsos negativos aquí con el servicio ya sano (uno con
+# 1s fijo, otro con 10s de margen). 30s de margen, con early-exit en cuanto
+# responde.
 ok=0
-for _ in $(seq 1 10); do
+for _ in $(seq 1 30); do
   sleep 1
-  if curl -sf http://127.0.0.1:8443/healthz > /dev/null; then
+  if curl -sf --max-time 2 http://127.0.0.1:8443/healthz > /dev/null; then
     ok=1
     break
   fi
 done
 
 if [[ "$ok" -ne 1 ]]; then
-  echo "healthz no respondió OK tras 10s del restart (tag ${TAG})" >&2
+  echo "healthz no respondió OK tras 30s del restart (tag ${TAG})" >&2
   exit 1
 fi
 
