@@ -23,9 +23,20 @@ runuser -u mcp -- "$REPO/.venv/bin/pip" install -q -e "$REPO"
 
 systemctl restart mcp-optima-bd
 
-sleep 1
-if ! curl -sf http://127.0.0.1:8443/healthz > /dev/null; then
-  echo "healthz no respondió OK tras el restart (tag ${TAG})" >&2
+# Reintenta en vez de un sleep fijo: el arranque en frío (pool de conexiones,
+# registro de ~37 tools) puede tardar más de 1s y el primer disparo real
+# (31-oct-2026) dio un falso negativo aquí con el servicio ya sano.
+ok=0
+for _ in $(seq 1 10); do
+  sleep 1
+  if curl -sf http://127.0.0.1:8443/healthz > /dev/null; then
+    ok=1
+    break
+  fi
+done
+
+if [[ "$ok" -ne 1 ]]; then
+  echo "healthz no respondió OK tras 10s del restart (tag ${TAG})" >&2
   exit 1
 fi
 
