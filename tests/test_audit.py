@@ -78,3 +78,12 @@ def test_audit_sin_contextvar_fijado_usa_mcp(tmp_path):
     log.record("run_query", "mcp", "SELECT 1")
     row = json.loads((tmp_path / "audit.jsonl").read_text().splitlines()[0])
     assert row["who"] == "mcp"
+
+
+def test_audit_jsonl_queda_con_permisos_privados(tmp_path):
+    import stat
+
+    log = AuditLogger(tmp_path)
+    log.record("run_query", "mcp", "SELECT 1")
+    modo = stat.S_IMODE((tmp_path / "audit.jsonl").stat().st_mode)
+    assert modo == 0o600

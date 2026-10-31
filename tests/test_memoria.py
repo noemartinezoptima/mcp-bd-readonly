@@ -22,6 +22,15 @@ def test_memoria_persiste(tmp_path):
     assert len(m2.consultar("x")) >= 1
 
 
+def test_memoria_json_queda_con_permisos_privados(tmp_path):
+    import stat
+
+    m = Memoria(tmp_path)
+    m.guardar({"frase": "x", "query": "select 1", "resumen": "y", "usuaria": "zerocool"})
+    modo = stat.S_IMODE((tmp_path / "memoria.json").stat().st_mode)
+    assert modo == 0o600
+
+
 def test_usuaria_por_defecto(tmp_path):
     tools = {fn.__name__: fn for fn in build_memoria_tools(audit=None, data_dir=tmp_path)}
     out = tools["recordar_consulta"]("frase", "select 1", "resumen")
