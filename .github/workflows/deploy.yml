@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# Sin esto el GITHUB_TOKEN por defecto es de solo lectura y el push del tag
+# falla con 403 (confirmado: primer disparo real, 31-oct-2026).
+permissions:
+  contents: write
+
 concurrency:
   group: deploy-mcp-back
   cancel-in-progress: false
