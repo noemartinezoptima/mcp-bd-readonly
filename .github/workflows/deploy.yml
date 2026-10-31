@@ -1,0 +1,54 @@
+name: Deploy a optimaback-standby
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-mcp-back
+  cancel-in-progress: false
+
+jobs:
+  tag-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calcular siguiente tag (mcp-remote-vX.Y, incrementa Y)
+        id: tag
+        run: |
+          last=$(git tag -l 'mcp-remote-v*' --sort=-v:refname | head -1)
+          if [ -z "$last" ]; then
+            next="mcp-remote-v0.1"
+          else
+            ver=${last#mcp-remote-v}
+            major=${ver%%.*}
+            minor=${ver#*.}
+            next="mcp-remote-v${major}.$((minor + 1))"
+          fi
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Crear y pushear el tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.tag.outputs.tag }}" -m "Deploy automático ${{ steps.tag.outputs.tag }} (${{ github.sha }})"
+          git push origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Deploy por SSH (comando forzado en el servidor)
+        env:
+          SSH_KEY: ${{ secrets.MCP_DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.MCP_DEPLOY_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              forge@"$SSH_HOST" "${{ steps.tag.outputs.tag }}"
+
+      - name: Verificar healthz público
+        run: curl -sf https://mcp-back.optimaonline.eu/healthz
