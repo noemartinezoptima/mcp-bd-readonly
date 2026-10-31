@@ -33,27 +33,29 @@ def _nombres(tmp_path, perfil=""):
 
 
 def test_sin_perfil_registra_todas_las_tools(tmp_path):
-    # 37 del servidor remoto + setup_ssh, que solo se registra en local.
-    assert len(_nombres(tmp_path, "")) == 38
-    assert len(_nombres(tmp_path, "todas")) == 38
+    # 38 del servidor remoto (incluye run_script) + setup_ssh, solo en local.
+    assert len(_nombres(tmp_path, "")) == 39
+    assert len(_nombres(tmp_path, "todas")) == 39
 
 
-def test_perfil_contabilidad_deja_21_tools(tmp_path):
+def test_perfil_contabilidad_deja_22_tools(tmp_path):
     nombres = _nombres(tmp_path, "contabilidad")
     assert nombres == PERFILES["contabilidad"]
-    assert len(nombres) == 21
+    assert len(nombres) == 22
     assert "run_query" in nombres and "balance" in nombres
     assert "stock_actual" not in nombres
     # El entrenamiento no puede quedar inaccesible con un perfil de dominio:
     # el cliente recibiría "Unknown tool" al intentar consultar memoria.json.
     assert "consultar_memoria" in nombres
+    assert "run_script" in nombres
 
 
 def test_perfiles_de_dominio_mas_pequenos(tmp_path):
-    assert len(_nombres(tmp_path, "operaciones")) == 11
-    assert len(_nombres(tmp_path, "excel")) == 10
+    assert len(_nombres(tmp_path, "operaciones")) == 12
+    assert len(_nombres(tmp_path, "excel")) == 11
     for perfil in ("operaciones", "excel"):
         assert "consultar_memoria" in _nombres(tmp_path, perfil)
+        assert "run_script" in _nombres(tmp_path, perfil)
 
 
 def test_core_presente_en_todos_los_perfiles():
@@ -98,11 +100,11 @@ def test_perfil_desconocido_no_tumba_el_servicio(caplog):
     assert "contabilidad" in caplog.text  # dice los válidos
 
 
-def test_perfil_desconocido_sirve_las_37_y_lo_dice_en_instructions(tmp_path):
-    """Tampoco puede pasar desapercibido: se sirven las 37 de siempre (nada
+def test_perfil_desconocido_sirve_las_38_y_lo_dice_en_instructions(tmp_path):
+    """Tampoco puede pasar desapercibido: se sirven las de siempre (nada
     desaparece en silencio) y el aviso viaja en `instructions`, que es lo que
     lee el cliente en cada `initialize`."""
-    assert len(_nombres(tmp_path, "contabilid")) == 38
+    assert len(_nombres(tmp_path, "contabilid")) == 39
     mcp = build_mcp(_cfg(tmp_path, "contabilid"), executor=object(), audit=None,
                     remote=False)
     texto = mcp.instructions or ""

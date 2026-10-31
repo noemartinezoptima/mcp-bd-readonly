@@ -23,6 +23,7 @@ from mcp_bd_readonly.tools_gastos import build_gastos_tools
 from mcp_bd_readonly.tools_stock import build_stock_tools
 from mcp_bd_readonly.tools_balance import build_balance_tools
 from mcp_bd_readonly.tools_meta import build_meta_tools
+from mcp_bd_readonly.run_script import build_run_script_tools
 from mcp_bd_readonly.tunnel import TunnelManager
 from mcp_bd_readonly.tools_setup import setup_ssh
 from mcp_bd_readonly.agente import detectar_agente
@@ -95,9 +96,12 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     instrucciones = INSTRUCTIONS if not aviso else f"{INSTRUCTIONS}\nAVISO: {aviso}"
     mcp = FastMCP("mcp-optima-bd", instructions=instrucciones, **kwargs)
 
+    registradas: dict = {}
+
     def reg(fn):
         if activas is None or fn.__name__ in activas:
             mcp.tool()(fn)
+            registradas[fn.__name__] = fn
         return fn
 
     for fn in build_tools(executor, audit):
@@ -142,6 +146,15 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     reg(check_excel_capabilities)
     reg(resumen_excel)
     reg(reconciliar_excel_bd)
+
+    # run_script recibe las funciones YA registradas (tras el filtro de
+    # perfil de arriba): una API key del perfil "excel" no debe poder usar
+    # run_script para colarse a facturas_venta aunque esa función exista en
+    # el proceso — correspondencia exacta con lo que esa key puede llamar
+    # directamente por tools/call.
+    for fn in build_run_script_tools(audit, dict(registradas)):
+        reg(fn)
+
     return mcp
 
 
