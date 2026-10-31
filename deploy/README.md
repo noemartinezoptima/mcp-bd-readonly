@@ -325,3 +325,60 @@ python -m mcp_bd_readonly.auth --db /var/lib/mcp-optima-bd/api_keys.db revoke --
 - Réplica: `STOP REPLICA;` y `DROP DATABASE back;` en el standby. El primario no
   se ha modificado salvo el usuario `repl_mcp` (revocable).
 - El primario **nunca** se reinicia en este procedimiento.
+
+## 8. Despliegue automático (GitHub Actions)
+
+`.github/workflows/deploy.yml` crea un tag `mcp-remote-vX.Y` y despliega al
+standby en cada push a `main`. La superficie de ataque entera de la
+automatización son dos ficheros ya en el repo
+(`deploy/remote-deploy.sh`, `deploy/ssh-deploy-entry.sh`) — revísalos antes de
+activar esto. **Nada de esta sección se puede automatizar por SSH**: requiere
+root interactivo en el servidor (`sudoers`, `authorized_keys`), así que se
+aplica a mano, una sola vez.
+
+### 8.1 Clave de despliegue dedicada (en TU máquina, no en el servidor)
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/mcp_back_deploy -C "github-actions-mcp-back-deploy" -N ""
+```
+
+- La **privada** (`~/.ssh/mcp_back_deploy`) va a un secret de GitHub, nunca al repo.
+- La **pública** (`~/.ssh/mcp_back_deploy.pub`) va al servidor, en el siguiente paso.
+
+### 8.2 En el servidor (`optimaback-standby`, como root o con sudo interactivo)
+
+Instalar los scripts (ya están en el repo desplegado en `/opt/mcp-optima-bd`,
+solo falta darles los permisos correctos y la propiedad):
+
+```bash
+chmod 750 /opt/mcp-optima-bd/deploy/remote-deploy.sh /opt/mcp-optima-bd/deploy/ssh-deploy-entry.sh
+chown root:root /opt/mcp-optima-bd/deploy/remote-deploy.sh   # debe ser de root: lo invoca sudo
+```
+
+**Sudoers** (`sudo visudo -f /etc/sudoers.d/mcp-back-deploy`) — NOPASSWD acotado a
+ese único script, ningún otro comando:
+
+```
+forge ALL=(root) NOPASSWD: /opt/mcp-optima-bd/deploy/remote-deploy.sh
+```
+
+**Clave de despliegue** en `~/.ssh/authorized_keys` del usuario `forge` — con
+`command=` forzado: quien use esta clave NO tiene shell, solo puede disparar
+`ssh-deploy-entry.sh` (que a su vez solo puede invocar el script de arriba):
+
+```
+command="/opt/mcp-optima-bd/deploy/ssh-deploy-entry.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,restrict ssh-ed25519 AAAA...(pegar aquí el contenido de mcp_back_deploy.pub) github-actions-mcp-back-deploy
+```
+
+### 8.3 Secrets en GitHub (repo `noemartinezoptima/mcp-bd-readonly` → Settings → Secrets)
+
+| Secret | Valor |
+|---|---|
+| `MCP_DEPLOY_SSH_KEY` | Contenido completo de `~/.ssh/mcp_back_deploy` (la privada) |
+| `MCP_DEPLOY_SSH_HOST` | IP del standby (`167.233.70.237`) |
+
+### 8.4 Primer disparo
+
+Un push/merge a `main` dispara el workflow. Revisa la pestaña Actions del repo;
+si falla en el paso SSH, el error más probable es `authorized_keys`/sudoers mal
+copiado (revisa que no se haya partido la clave en varias líneas).
