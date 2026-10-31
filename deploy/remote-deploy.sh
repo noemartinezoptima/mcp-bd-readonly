@@ -6,6 +6,14 @@
 # único argumento (el tag) antes de tocar nada.
 set -euo pipefail
 
+# Log persistente: un fallo silencioso del deploy automático (confirmado:
+# 4º disparo real, 31-oct-2026, exit 1 sin NINGÚN output visible ni por SSH
+# directo ni por el workflow) no se puede diagnosticar sin rastro en disco.
+LOG=/var/lib/mcp-optima-bd/deploy.log
+exec > >(tee -a "$LOG") 2> >(tee -a "$LOG" >&2)
+echo "=== deploy $(date -Is) tag=${1:-<ninguno>} ==="
+set -x
+
 TAG="${1:-}"
 
 if [[ ! "$TAG" =~ ^mcp-remote-v[0-9]+\.[0-9]+$ ]]; then
