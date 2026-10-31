@@ -1,6 +1,6 @@
 from decimal import Decimal
 from mcp_bd_readonly.db import QueryExecutor
-from mcp_bd_readonly.format_es import exact_sum, fmt_money
+from mcp_bd_readonly.format_es import exact_sum
 from mcp_bd_readonly.audit import AuditLogger
 
 
@@ -37,7 +37,7 @@ def facturas_venta(ex, fecha_desde, fecha_hasta, cliente=None, max_n: int = 200)
             "total": total_linea,
             "estado_id": r["estado_id"],
         })
-    return {"facturas": out, "total_periodo": total, "total_periodo_es": fmt_money(total),
+    return {"facturas": out, "total_periodo": total,
             "n_total": n_total, "limit_aplicado": int(max_n)}
 
 
@@ -52,8 +52,7 @@ def resumen_iva(ex, trimestre: int, anio: int):
     iva = exact_sum(_dec(r["iva_euros"]) for r in rows)
     total = exact_sum(_dec(r["total_euros"]) for r in rows)
     base = total - iva
-    return {"base": base, "iva": iva, "total": total,
-            "base_es": fmt_money(base), "iva_es": fmt_money(iva), "total_es": fmt_money(total)}
+    return {"base": base, "iva": iva, "total": total}
 
 
 def remesas_pendientes(ex, max_n: int = 50) -> dict:
@@ -78,7 +77,7 @@ def remesas_pendientes(ex, max_n: int = 50) -> dict:
         })
     total_importe = _dec(tot[0]["t"]).quantize(Decimal("0.01"))
     return {"pendientes": out, "n": _dec(cnt[0]["n"]), "total": total_importe,
-            "total_es": fmt_money(total_importe), "limit_aplicado": int(max_n)}
+            "limit_aplicado": int(max_n)}
 
 
 def cuadre_factura(ex, factura_id: int) -> dict:

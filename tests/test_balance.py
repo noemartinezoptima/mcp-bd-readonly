@@ -42,7 +42,6 @@ def test_balance_cuadra():
     assert r["resultado"] == Decimal("400.00")
     # cuadre: activo − (pasivo+patrimonio) == resultado
     assert r["cuadra"] == r["resultado"] == Decimal("400.00")
-    assert r["activo"]["total_es"] == "1.300,00 €"
 
 
 def test_build_balance_tools_registers_one():

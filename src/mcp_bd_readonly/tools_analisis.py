@@ -2,7 +2,6 @@ from decimal import Decimal
 
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
-from mcp_bd_readonly.format_es import fmt_money, fmt_mes, fmt_dias
 
 
 def _dec(v):
@@ -25,8 +24,7 @@ def dso_dpo_evolutivo(ex: QueryExecutor, anio_desde: int = 2025, anio_hasta: int
         "GROUP BY mes ORDER BY mes"
     )
     _, dpo_rows = ex.run(sql_dpo, [anio_desde, anio_hasta], limit=None)
-    dpo = [{"mes": r["mes"], "mes_es": fmt_mes(r["mes"]), "dpo_dias": round(float(r["dias"]), 1),
-            "dpo_dias_es": fmt_dias(r["dias"]), "n": r["n"]} for r in dpo_rows]
+    dpo = [{"mes": r["mes"], "dpo_dias": round(float(r["dias"]), 1), "n": r["n"]} for r in dpo_rows]
 
     sql_dso = (
         "SELECT DATE_FORMAT(fv.fecha_factura, '%%Y-%%m') mes, "
@@ -36,14 +34,12 @@ def dso_dpo_evolutivo(ex: QueryExecutor, anio_desde: int = 2025, anio_hasta: int
         "GROUP BY mes ORDER BY mes"
     )
     _, dso_rows = ex.run(sql_dso, [anio_desde, anio_hasta], limit=None)
-    dso = [{"mes": r["mes"], "mes_es": fmt_mes(r["mes"]), "dso_dias": round(float(r["dias"]), 1),
-            "dso_dias_es": fmt_dias(r["dias"]), "n": r["n"]} for r in dso_rows]
+    dso = [{"mes": r["mes"], "dso_dias": round(float(r["dias"]), 1), "n": r["n"]} for r in dso_rows]
 
     n_total = sum(d["n"] for d in dpo)
     dpo_medio = round(sum(d["dpo_dias"] * d["n"] for d in dpo) / n_total, 1) if n_total else None
 
-    return {"dpo_mensual": dpo, "dso_mensual": dso, "dpo_medio": dpo_medio,
-            "dpo_medio_es": fmt_dias(dpo_medio) if dpo_medio is not None else None}
+    return {"dpo_mensual": dpo, "dso_mensual": dso, "dpo_medio": dpo_medio}
 
 
 def aging_efectos(ex: QueryExecutor) -> dict:
@@ -69,7 +65,6 @@ def aging_efectos(ex: QueryExecutor) -> dict:
             "bucket": r["bucket"],
             "n": r["n"],
             "importe": importe,
-            "importe_es": fmt_money(importe),
         })
     return {"aging": out}
 

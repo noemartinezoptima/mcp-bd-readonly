@@ -17,6 +17,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from mcp_bd_readonly.auth import KeyStore
+from mcp_bd_readonly.request_ctx import reset_api_key, set_api_key
 
 PUBLIC_PATHS = frozenset({"/healthz", "/healthz/"})
 
@@ -110,16 +111,27 @@ class ApiKeyMiddleware:
         scope.setdefault("state", {})
         scope["state"]["api_key_id"] = info.key_id
         scope["state"]["api_key_name"] = info.name
-        return await self.app(scope, receive, send)
+
+        # Fijado en el contextvar (no solo en scope["state"]) para que
+        # AuditLogger.record(), llamado desde dentro de las tools sin acceso
+        # al scope ASGI, sepa qué API key disparó la query actual.
+        token = set_api_key(info.key_id)
+        try:
+            return await self.app(scope, receive, send)
+        finally:
+            reset_api_key(token)
 
 
 def build_app(mcp, store: KeyStore, router=None, rate_limit_per_min: int = 120) -> Starlette:
     """Envuelve la app de MCP con /healthz y autenticación por API key."""
 
     async def healthz(_: Request) -> JSONResponse:
-        estado = router.estado() if hasattr(router, "estado") else {"destino": "primario"}
+        # /healthz está en PUBLIC_PATHS (sin auth). El detalle del router de
+        # réplica (lag, destino) es topología interna: no debe ser legible por
+        # cualquiera que golpee el endpoint. Confirmar réplica/lag vía una
+        # tool autenticada (p. ej. auditoria) o el log del servicio.
         return JSONResponse(
-            {"status": "ok", "servicio": "mcp-optima-bd", "replica": estado},
+            {"status": "ok", "servicio": "mcp-optima-bd"},
             headers={"cache-control": "no-store"},
         )
 

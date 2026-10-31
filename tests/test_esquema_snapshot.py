@@ -64,6 +64,30 @@ def test_schema_snapshot_tool_usa_cache(tmp_path):
     assert len(ex.queries) == 2  # no consulta BD de nuevo
 
 
+def test_schema_snapshot_filtra_por_tabla(tmp_path):
+    ex = _fake(SAMPLE)
+    tools = {fn.__name__: fn for fn in build_schema_tools(ex, audit=None, data_dir=tmp_path)}
+    out = tools["schema_snapshot"](tabla="ots")
+    assert set(out["tables"]) == {"ots"}
+
+
+def test_schema_snapshot_filtra_por_prefijo(tmp_path):
+    ex = _fake(SAMPLE)
+    tools = {fn.__name__: fn for fn in build_schema_tools(ex, audit=None, data_dir=tmp_path)}
+    out = tools["schema_snapshot"](prefijo="factura")
+    assert set(out["tables"]) == {"facturas_venta"}
+
+
+def test_schema_snapshot_resumen_omite_columnas(tmp_path):
+    ex = _fake(SAMPLE)
+    tools = {fn.__name__: fn for fn in build_schema_tools(ex, audit=None, data_dir=tmp_path)}
+    out = tools["schema_snapshot"](resumen=True)
+    assert set(out["tables"]) == {"facturas_venta", "ots"}
+    for info in out["tables"].values():
+        assert "columns" not in info
+    assert out["tables"]["ots"]["rows"] == 1090000
+
+
 def test_refresh_schema_exige_confirm(tmp_path):
     ex = _fake(SAMPLE)
     tools = {fn.__name__: fn for fn in build_schema_tools(ex, audit=None, data_dir=tmp_path)}

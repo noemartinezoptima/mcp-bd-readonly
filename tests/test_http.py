@@ -139,5 +139,39 @@ def test_build_app_expone_healthz_y_protege_mcp(tmp_path):
         assert salud.status_code == 200
         body = salud.json()
         assert body["status"] == "ok"
-        assert body["replica"]["destino"] == "replica"
         assert client.post("/mcp").status_code == 401
+
+
+def test_healthz_no_expone_topologia_interna(tmp_path):
+    """/healthz es público (sin auth): no debe filtrar lag/destino de la
+    réplica a quien golpee el endpoint sin credenciales."""
+    store = KeyStore(tmp_path / "k.db")
+    app = build_app(FakeMCP(), store, router=FakeRouter(), rate_limit_per_min=10)
+    with TestClient(app) as client:
+        body = client.get("/healthz").json()
+    assert "replica" not in body
+    assert set(body) == {"status", "servicio"}
+
+
+def test_request_autenticada_fija_contextvar_api_key(tmp_path):
+    """El audit log no podía saber qué API key disparó una query porque el
+    api_key_id solo se guardaba en scope['state'], invisible para las tools.
+    Debe quedar también en el contextvar que AuditLogger lee."""
+    from mcp_bd_readonly.request_ctx import get_api_key
+
+    seen = {}
+
+    async def capture(_request):
+        seen["api_key"] = get_api_key()
+        return JSONResponse({"ok": True})
+
+    app = Starlette(routes=[Route("/mcp", capture, methods=["POST"])])
+    store = KeyStore(tmp_path / "k.db")
+    created = store.create("trazable")
+    app.add_middleware(ApiKeyMiddleware, store=store)
+    with TestClient(app) as client:
+        assert get_api_key() is None  # fuera de la request, nunca fijado
+        resp = client.post("/mcp", headers={"Authorization": f"Bearer {created['key']}"})
+    assert resp.status_code == 200
+    assert seen["api_key"] == created["id"]
+    assert get_api_key() is None  # se limpia tras la request

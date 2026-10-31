@@ -241,16 +241,10 @@ def normalizar_texto(texto: str) -> list[dict]:
 def resolver(texto: str) -> dict:
     """Resuelve una frase en español a términos canónicos del catálogo (tabla + tool + nota)."""
     coincidencias = normalizar_texto(texto)
-    sugerencias = [
-        {
-            "termino": c["termino"],
-            "canonico": c["canonico"],
-            "tabla": c["info"]["tabla"],
-            "herramienta_mcp": c["info"]["herramienta_mcp"],
-            "nota_uso": c["info"]["nota_uso"],
-        }
-        for c in coincidencias
-    ]
+    # `sugerencias` era `coincidencias` aplanado (mismo termino/canonico/tabla/
+    # herramienta_mcp/nota_uso, sin `trampas`): una respuesta duplicada para una
+    # tool que el agente llama antes de CADA SQL, según las INSTRUCTIONS del
+    # servidor. Se eliminó: toda esa info ya está en `coincidencias[].info`.
     if coincidencias:
         cont = Counter(c["canonico"] for c in coincidencias)
         max_n = cont.most_common(1)[0][1]
@@ -261,6 +255,5 @@ def resolver(texto: str) -> dict:
     return {
         "normalizado": _norm(texto),
         "coincidencias": coincidencias,
-        "sugerencias": sugerencias,
         "recomendado": recomendado,
     }

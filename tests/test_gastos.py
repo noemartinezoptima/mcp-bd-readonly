@@ -51,7 +51,6 @@ def test_facturas_compra_basic():
     r = facturas_compra(ex, "2026-06-01", "2026-06-30")
     assert r["n_total"] == 2
     assert r["total_periodo"] == Decimal("363.00")
-    assert r["total_periodo_es"] == "363,00 €"
     assert r["facturas"][0]["proveedor"] == "Acme SL"
     assert r["facturas"][0]["pagada"] is False
     _, list_params, list_limit = ex.calls[1]

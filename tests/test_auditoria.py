@@ -52,7 +52,6 @@ def test_saldos_cliente_dispatch():
     assert res["facturado"] == Decimal("1200")
     assert res["cobrado"] == Decimal("500")
     assert res["pendiente"] == Decimal("700")
-    assert res["pendiente_es"] == "700,00 €"
 
 
 def test_conciliar_remesas_dispatch():
@@ -69,7 +68,6 @@ def test_conciliar_remesas_dispatch():
     assert res["emitido"] == Decimal("10000")
     assert res["acreditado"] == Decimal("7500")
     assert res["pendiente"] == Decimal("2500")
-    assert res["pendiente_es"] == "2.500,00 €"
 
 
 def test_excepciones_filtra_umbral():
@@ -102,7 +100,6 @@ def test_excepciones_filtra_umbral():
     assert res["resumen"] == {"CRITICAL": 2, "WARNING": 0, "INFO": 0}
     assert res["excepciones"][0]["codigo"] == "F-002"
     assert res["excepciones"][0]["total"] == Decimal("1500.00")
-    assert "€" in res["excepciones"][0]["total_es"]
 
 
 def test_informe_financiero_markdown_y_csv():

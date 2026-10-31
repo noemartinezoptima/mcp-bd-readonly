@@ -59,6 +59,23 @@ class SchemaSnapshot:
             return None
 
 
+def _filtrar_tablas(snap: dict, tabla: str | None, prefijo: str | None) -> dict:
+    tablas = snap["tables"]
+    if tabla:
+        tablas = {k: v for k, v in tablas.items() if k == tabla}
+    elif prefijo:
+        tablas = {k: v for k, v in tablas.items() if k.startswith(prefijo)}
+    return dict(snap, tables=tablas)
+
+
+def _resumir_tablas(snap: dict) -> dict:
+    tablas = {
+        nombre: {k: v for k, v in info.items() if k != "columns"}
+        for nombre, info in snap["tables"].items()
+    }
+    return dict(snap, tables=tablas)
+
+
 def build_schema_tools(ex, audit, data_dir):
     store = SchemaSnapshot(data_dir)
 
@@ -67,13 +84,23 @@ def build_schema_tools(ex, audit, data_dir):
         store.save(snap)
         return dict(snap, fuente="fresh")
 
-    def schema_snapshot(fuerza: bool = False) -> dict:
-        """Esquema de la BD (tablas+columnas+comentarios) en caché local; no consulta la BD salvo fuerza=True."""
-        audit and audit.record("schema_snapshot", "mcp", f"fuerza={fuerza}")
+    def schema_snapshot(
+        fuerza: bool = False, tabla: str | None = None, prefijo: str | None = None, resumen: bool = False
+    ) -> dict:
+        """Esquema de la BD (tablas+columnas+comentarios) en caché local; no consulta la BD salvo fuerza=True.
+        El snapshot completo son ~500 KB: si solo necesitas una tabla usa `tabla` (nombre exacto) o
+        `prefijo` (ej. 'factura'); si solo necesitas saber qué tablas hay (sin columnas) usa resumen=True.
+        Sin argumentos devuelve todo, igual que antes."""
+        audit and audit.record(
+            "schema_snapshot", "mcp", f"fuerza={fuerza} tabla={tabla} prefijo={prefijo} resumen={resumen}"
+        )
         cached = store.load()
-        if cached and not fuerza:
-            return dict(cached, fuente="cache")
-        return _fresh()
+        snap = dict(cached, fuente="cache") if (cached and not fuerza) else _fresh()
+        if tabla or prefijo:
+            snap = _filtrar_tablas(snap, tabla, prefijo)
+        if resumen:
+            snap = _resumir_tablas(snap)
+        return snap
 
     def refresh_schema(confirm: bool = False) -> dict:
         """[ADMIN] Reconstruye el snapshot de esquema desde la BD. Requiere confirm=True."""

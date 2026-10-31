@@ -13,7 +13,6 @@ from decimal import Decimal
 
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
-from mcp_bd_readonly.format_es import fmt_money
 
 _PASIVO = ("40", "41", "42", "46", "49", "52", "55", "50", "51", "53", "17", "18", "19")
 _ACTIVO_CTE = ("43", "44", "45", "47", "48", "57", "56")
@@ -73,26 +72,17 @@ def balance(ex):
     return {
         "activo": {
             "no_corriente": no_corriente,
-            "no_corriente_es": fmt_money(no_corriente),
             "existencias": existencias,
-            "existencias_es": fmt_money(existencias),
             "corriente": corriente,
-            "corriente_es": fmt_money(corriente),
             "total": activo_total,
-            "total_es": fmt_money(activo_total),
         },
-        "pasivo": {"total": pasivo, "total_es": fmt_money(pasivo)},
-        "patrimonio": {"total": patrimonio, "total_es": fmt_money(patrimonio)},
+        "pasivo": {"total": pasivo},
+        "patrimonio": {"total": patrimonio},
         "pasivo_patrimonio_total": pasivo_patrimonio,
-        "pasivo_patrimonio_total_es": fmt_money(pasivo_patrimonio),
         "ingresos": ingresos,
-        "ingresos_es": fmt_money(ingresos),
         "gastos": gastos,
-        "gastos_es": fmt_money(gastos),
         "resultado": resultado,
-        "resultado_es": fmt_money(resultado),
         "cuadra": activo_total - pasivo_patrimonio,
-        "cuadra_es": fmt_money(activo_total - pasivo_patrimonio),
     }
 
 

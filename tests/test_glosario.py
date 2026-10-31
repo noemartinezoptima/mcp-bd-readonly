@@ -70,20 +70,20 @@ def test_resolver_recomienda_canonico_correcto():
         assert r["normalizado"]
 
 
-def test_resolver_sugerencias_con_herramienta():
+def test_resolver_coincidencias_traen_herramienta():
     r = resolver("remesas pendientes de ventas de la tienda")
-    tools = {s["canonico"]: s["herramienta_mcp"] for s in r["sugerencias"]}
+    tools = {c["canonico"]: c["info"]["herramienta_mcp"] for c in r["coincidencias"]}
     assert tools["efectos_pago"] == "remesas_pendientes"
     assert tools["establecimiento"] == "detalle_establecimiento"
     assert tools["facturas_venta"] == "facturas_venta"
-    assert r["sugerencias"][0]["canonico"] == "establecimiento"
+    assert r["coincidencias"][0]["canonico"] == "establecimiento"
 
 
 def test_resolver_sin_coincidencias():
     r = resolver("hola que tal")
     assert r["recomendado"] is None
     assert r["coincidencias"] == []
-    assert r["sugerencias"] == []
+    assert "sugerencias" not in r
 
 
 def test_tool_registra_auditoria():

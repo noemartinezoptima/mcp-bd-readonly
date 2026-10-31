@@ -102,7 +102,6 @@ def test_facturas_venta_basic():
     assert f1["total"] == Decimal("121.00")
     assert f1["estado_id"] == 1
     assert result["total_periodo"] == Decimal("363.00")
-    assert result["total_periodo_es"] == "363,00 €"
     assert result["n_total"] == 2
     assert result["limit_aplicado"] == 200
     list_sql, list_params, list_limit = ex.calls[1]
@@ -176,9 +175,6 @@ def test_resumen_iva_quarter2():
     assert result["base"] == Decimal("1000.00")
     assert result["iva"] == Decimal("210.00")
     assert result["total"] == Decimal("1210.00")
-    assert result["base_es"] == "1.000,00 €"
-    assert result["iva_es"] == "210,00 €"
-    assert result["total_es"] == "1.210,00 €"
 
 
 def test_resumen_iva_quarter3():

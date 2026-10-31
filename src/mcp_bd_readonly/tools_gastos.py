@@ -10,7 +10,6 @@ from decimal import Decimal
 
 from mcp_bd_readonly.db import QueryExecutor
 from mcp_bd_readonly.audit import AuditLogger
-from mcp_bd_readonly.format_es import fmt_money
 
 
 def _dec(v):
@@ -65,7 +64,6 @@ def facturas_compra(
     return {
         "facturas": out,
         "total_periodo": total,
-        "total_periodo_es": fmt_money(total),
         "n_total": n_total,
         "limit_aplicado": int(max_n),
     }
@@ -86,7 +84,6 @@ def resumen_gastos_por_tipo(ex, fecha_desde, fecha_hasta):
             "tipo": r["tipo"],
             "n": r["n"],
             "total": _dec(r["total"]).quantize(Decimal("0.01")),
-            "total_es": fmt_money(r["total"]),
             "base": _dec(r["base"]).quantize(Decimal("0.01")),
         }
         for r in rows
@@ -130,11 +127,8 @@ def margen(ex, fecha_desde, fecha_hasta):
     pct = (m / v * 100).quantize(Decimal("0.1")) if v else None
     return {
         "ventas_netas": v,
-        "ventas_netas_es": fmt_money(v),
         "costes_directos": c,
-        "costes_directos_es": fmt_money(c),
         "margen": m,
-        "margen_es": fmt_money(m),
         "margen_pct": float(pct) if pct is not None else None,
     }
 
@@ -150,16 +144,11 @@ def pnl(ex, fecha_desde, fecha_hasta):
     res_pct = (resultado / ingresos * 100).quantize(Decimal("0.1")) if ingresos else None
     return {
         "ingresos": ingresos,
-        "ingresos_es": fmt_money(ingresos),
         "costes_directos": directos,
-        "costes_directos_es": fmt_money(directos),
         "margen_bruto": margen_bruto,
-        "margen_bruto_es": fmt_money(margen_bruto),
         "margen_bruto_pct": float(mb_pct) if mb_pct is not None else None,
         "costes_indirectos": indirectos,
-        "costes_indirectos_es": fmt_money(indirectos),
         "resultado": resultado,
-        "resultado_es": fmt_money(resultado),
         "resultado_pct": float(res_pct) if res_pct is not None else None,
     }
 
