@@ -42,3 +42,72 @@ def test_allows_read_commands(ok):
 def test_rejects_dml(bad):
     with pytest.raises(ReadOnlyViolation):
         enforce_read_only(bad)
+
+
+@pytest.mark.parametrize("bad", [
+    "SELECT 1; SELECT 2",
+    "SELECT 1;\nSELECT 2",
+    "SHOW TABLES; SELECT 1",
+])
+def test_rejects_multi_statement(bad):
+    with pytest.raises(ReadOnlyViolation):
+        enforce_read_only(bad)
+
+
+def test_allows_single_statement_trailing_semicolon():
+    enforce_read_only("SELECT 1;")
+
+
+@pytest.mark.parametrize("bad", [
+    "SELECT * FROM users INTO OUTFILE '/tmp/x'",
+    "SELECT * INTO DUMPFILE '/tmp/x'",
+    "SELECT LOAD_FILE('/etc/passwd')",
+    "SELECT SLEEP(60)",
+    "SELECT BENCHMARK(1000000, MD5('x'))",
+    "SELECT * FROM mysql.user",
+    "SELECT * FROM `mysql`.`user`",
+    "SELECT * FROM performance_schema.threads",
+    "SELECT * FROM sys.session",
+    "CALL procedimiento()",
+])
+def test_rejects_dangerous_reads(bad):
+    with pytest.raises(ReadOnlyViolation):
+        enforce_read_only(bad)
+
+
+@pytest.mark.parametrize("ok", [
+    "SELECT * FROM information_schema.TABLES",
+    "SELECT * FROM t WHERE credit_limit > 0",
+    "SELECT * FROM t WHERE nombre = 'sin limit'",
+    "WITH cte AS (SELECT 1) SELECT * FROM cte",
+    "SELECT * FROM t WHERE estado = 'delete'",
+    "SELECT * FROM t WHERE nombre = 'DROP TABLE x'",
+    "SELECT updated_at, delete_count FROM t",
+    "SHOW CREATE TABLE facturas_venta",
+])
+def test_allows_safe_selects(ok):
+    enforce_read_only(ok)
+
+
+@pytest.mark.parametrize("bad", [
+    # El bypass real: 'with' pasa el allowlist de primera palabra y MySQL 8
+    # acepta DML detrás de un CTE.
+    "WITH c AS (SELECT 1) DELETE FROM facturas_venta",
+    "WITH c AS (SELECT 1) UPDATE facturas_venta SET total_euros = 0",
+    "with recursive c as (select 1) delete from facturas_venta",
+    "WITH c AS (SELECT 1) INSERT INTO facturas_venta (id) VALUES (1)",
+    # Bloqueos de escritura.
+    "SELECT * FROM facturas_venta FOR UPDATE",
+    "SELECT * FROM facturas_venta FOR SHARE",
+    "SELECT * FROM facturas_venta LOCK IN SHARE MODE",
+])
+def test_rejects_dml_behind_cte_and_locks(bad):
+    with pytest.raises(ReadOnlyViolation):
+        enforce_read_only(bad)
+
+
+def test_error_message_names_the_reason():
+    with pytest.raises(ReadOnlyViolation, match="delete"):
+        enforce_read_only("WITH c AS (SELECT 1) DELETE FROM t")
+    with pytest.raises(ReadOnlyViolation, match="FOR UPDATE"):
+        enforce_read_only("SELECT * FROM t FOR UPDATE")

@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# mcp-key — clave y configuración del MCP remoto (mcp-optima-bd).
+#
+#   mcp-key                 clave guardada + JSON listo para el cliente
+#   mcp-key json            solo el JSON (para pegar en la config del cliente)
+#   mcp-key probar          handshake real contra la URL pública (200 + nº de tools)
+#   mcp-key listar          claves registradas en el servidor (sin secretos)
+#   mcp-key nueva [nombre]  emite una clave nueva y la guarda en ~/.mcp-api-key-finanzas
+#
+# Las claves se guardan HASHEADAS (SHA-256) en
+# /var/lib/mcp-optima-bd/api_keys.db, propiedad del usuario `mcp`. Una clave NO
+# se puede recuperar desde la base: si la pierdes, emite otra con `mcp-key nueva`.
+set -uo pipefail
+
+URL="${MCP_URL:-https://mcp-back.optimaonline.eu/mcp}"
+FILE="${MCP_KEY_FILE:-$HOME/.mcp-api-key-finanzas}"
+KEYS_DB="${MCP_KEYS_DB:-/var/lib/mcp-optima-bd/api_keys.db}"
+PY=/opt/mcp-optima-bd/.venv/bin/python
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+estado() {
+    local code
+    code=$(curl -sS -o /dev/null -m 8 -w '%{http_code}' "${URL%/mcp}/healthz" 2>/dev/null) || code=000
+    case "$code" in
+        200) printf 'OK (healthz 200)' ;;
+        000) printf 'sin respuesta (red o Cloudflare)' ;;
+        *)   printf 'healthz HTTP %s' "$code" ;;
+    esac
+}
+
+leer_clave() {
+    [ -s "$FILE" ] || die "no existe $FILE — emite una con: mcp-key nueva <nombre>"
+    head -1 "$FILE" | tr -d '\r\n'
+}
+
+mostrar() {
+    local key="$1"
+    cat <<EOT
+
+MCP Optima BD — remoto
+  URL    : $URL
+  clave  : $key
+  origen : $FILE
+  estado : $(estado)
+
+Config para el cliente (Claude Desktop / Cursor / VS Code):
+
+{
+  "mcpServers": {
+    "optima-bd": {
+      "type": "http",
+      "url": "$URL",
+      "headers": { "Authorization": "Bearer $key" }
+    }
+  }
+}
+
+Comandos: mcp-key probar · mcp-key json · mcp-key listar · mcp-key nueva <nombre>
+EOT
+}
+
+probar() {
+    "$PY" - "$URL" "$(leer_clave)" <<'PY'
+import json, sys, urllib.request
+
+url, key = sys.argv[1], sys.argv[2]
+UA = "mcp-key/1.0"  # Cloudflare bloquea Python-urllib por defecto
+
+def call(method, params=None):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method,
+                       "params": params or {}}).encode()
+    req = urllib.request.Request(url, data=body, method="POST", headers={
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "User-Agent": UA,
+    })
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+try:
+    init = call("initialize", {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": "mcp-key", "version": "1.0"},
+    })
+    tools = call("tools/list")["result"]["tools"]
+except Exception as exc:  # noqa: BLE001 — es un diagnóstico para el usuario
+    sys.exit(f"FALLO: {type(exc).__name__}: {exc}")
+
+info = init["result"]["serverInfo"]
+print(f"initialize : 200  {info['name']} v{info.get('version', '?')}")
+print(f"tools/list : {len(tools)} tools")
+PY
+}
+
+listar() {
+    sudo -u mcp "$PY" -m mcp_bd_readonly.auth --db "$KEYS_DB" list || die "no se pudo leer la base de claves"
+}
+
+nueva() {
+    local nombre="${1:-cli-$(date +%Y%m%d-%H%M)}" out
+    printf "Emitiendo clave '%s'…\n" "$nombre" >&2
+    out=$(sudo -u mcp "$PY" -m mcp_bd_readonly.auth --db "$KEYS_DB" \
+              create --name "$nombre" --scopes read --ttl-days 365) \
+        || die "no se pudo emitir la clave"
+    ( umask 077; printf '%s\n' "$out" > "$FILE" ) || die "no se pudo escribir $FILE"
+    printf 'Guardada en %s\n' "$FILE" >&2
+    mostrar "$(printf '%s\n' "$out" | head -1)"
+}
+
+case "${1:-mostrar}" in
+    mostrar)  mostrar "$(leer_clave)" ;;
+    json)
+        key="$(leer_clave)"
+        printf '{\n  "mcpServers": {\n    "optima-bd": {\n      "type": "http",\n      "url": "%s",\n      "headers": { "Authorization": "Bearer %s" }\n    }\n  }\n}\n' "$URL" "$key"
+        ;;
+    probar)   probar ;;
+    listar)   listar ;;
+    nueva)    shift; nueva "${1:-}" ;;
+    -h|--help|help)
+        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)        die "opción desconocida: $1 (usa: mcp-key --help)" ;;
+esac

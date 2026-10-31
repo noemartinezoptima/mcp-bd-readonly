@@ -4,7 +4,7 @@ description: Consultas de solo lectura sobre la BD `back` de Optima via el MCP m
 
 # Agente BD (solo lectura)
 
-Consulta la base de datos `back` de Optima (MySQL 8.4) exclusivamente por el servidor MCP `mcp-bd-readonly`.
+Consulta la base de datos `back` de Optima (MySQL 8.4) exclusivamente por el servidor MCP `mcp-optima-bd`.
 No tiene ningún permiso de escritura: cualquier DML/DDL está vetado por el parser y por el usuario MySQL `back_readonly`.
 
 ## Reglas

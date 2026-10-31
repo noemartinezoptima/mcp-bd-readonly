@@ -27,3 +27,13 @@ def fmt_date(d) -> str:
     if isinstance(d, datetime):
         d = d.date()
     return d.strftime("%d/%m/%Y")
+
+
+def fmt_mes(mes_iso: str) -> str:
+    """'2026-01' -> '01/2026'"""
+    anio, mes = mes_iso.split("-")
+    return f"{mes}/{anio}"
+
+
+def fmt_dias(v) -> str:
+    return f"{_dec(v):.1f}".replace(".", ",") + " d"

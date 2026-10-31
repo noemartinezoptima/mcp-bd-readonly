@@ -66,6 +66,23 @@ def test_cuadre_no_header():
     assert res["lineas_sum"] == Decimal("0.00")
 
 
+def test_cuadre_lineas_mas_de_100_sin_limite():
+    class ManyLines(FakeEx):
+        def run(self, sql, params=None, limit=100):
+            if "lineas" in sql:
+                if limit is None:
+                    rows = [{"total_euros": Decimal("1.00")} for _ in range(120)]
+                else:
+                    rows = [{"total_euros": Decimal("1.00")} for _ in range(int(limit))]
+                return ["total_euros"], rows
+            return ["total_euros"], [{"total_euros": Decimal("120.00")}]
+
+    res = cuadre_factura(ManyLines(), 1)
+    assert res["exists"] is True
+    assert res["ok"] is True
+    assert res["lineas_sum"] == Decimal("120.00")
+
+
 def test_facturas_venta_basic():
     ex = FakeEx(
         default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
@@ -85,13 +102,30 @@ def test_facturas_venta_basic():
     assert f1["total"] == Decimal("121.00")
     assert f1["estado_id"] == 1
     assert result["total_periodo"] == Decimal("363.00")
-    assert result["total_periodo_es"] == "363,00 €"
     assert result["n_total"] == 2
     assert result["limit_aplicado"] == 200
     list_sql, list_params, list_limit = ex.calls[1]
     assert "LIMIT %s" in list_sql
     assert list_params == ["2026-08-01", "2026-08-31", 200]
     assert list_limit is None
+
+
+def test_facturas_venta_base_derivada_no_base_moneda():
+    """base debe ser EUR (total − iva), no base_moneda (divisa de la factura)."""
+    ex = FakeEx(
+        default_cols=["codigo", "fecha_factura", "base_moneda", "iva_euros", "total_euros", "estado_id"],
+        default_rows=[{
+            "codigo": "FX-1", "fecha_factura": "2026-08-01",
+            "base_moneda": Decimal("900.00"),  # USD, no EUR
+            "iva_euros": Decimal("210.00"),
+            "total_euros": Decimal("1210.00"),
+            "estado_id": 1,
+        }],
+    )
+    f = facturas_venta(ex, "2026-08-01", "2026-08-31")["facturas"][0]
+    assert f["base"] == Decimal("1000.00")
+    assert f["base_divisa"] == Decimal("900.00")
+    assert f["base"] + f["iva"] == f["total"]
 
 
 def test_facturas_venta_with_client():
@@ -141,9 +175,6 @@ def test_resumen_iva_quarter2():
     assert result["base"] == Decimal("1000.00")
     assert result["iva"] == Decimal("210.00")
     assert result["total"] == Decimal("1210.00")
-    assert result["base_es"] == "1.000,00 €"
-    assert result["iva_es"] == "210,00 €"
-    assert result["total_es"] == "1.210,00 €"
 
 
 def test_resumen_iva_quarter3():
@@ -158,6 +189,22 @@ def test_resumen_iva_quarter3():
     assert result["base"] == Decimal("0.00")
 
 
+def test_resumen_iva_fx_no_mezcla_monedas():
+    class FX(FakeEx):
+        def run(self, sql, params=None, limit=100):
+            rows = [
+                {"base_moneda": Decimal("1000.00"), "iva_euros": Decimal("210.00"), "total_euros": Decimal("1210.00")},
+                {"base_moneda": Decimal("1500.00"), "iva_euros": Decimal("210.00"), "total_euros": Decimal("1210.00")},
+            ]
+            return ["base_moneda", "iva_euros", "total_euros"], rows
+
+    result = resumen_iva(FX(), 3, 2026)
+    assert result["iva"] == Decimal("420.00")
+    assert result["total"] == Decimal("2420.00")
+    assert result["total"] == result["base"] + result["iva"]
+    assert result["base"] == Decimal("2000.00")
+
+
 def test_remesas_pendientes():
     ex = FakeEx(
         default_cols=["codigo", "fecha_emision", "fecha_vencimiento", "total_euros", "estado_id", "regularizado"],
@@ -169,7 +216,8 @@ def test_remesas_pendientes():
         ],
     )
     result = remesas_pendientes(ex)
-    assert result["total"] == Decimal("2")
+    assert result["n"] == Decimal("2")
+    assert result["total"] == Decimal("1250.50")
     assert result["limit_aplicado"] == 50
     assert len(result["pendientes"]) == 2
     r0 = result["pendientes"][0]
@@ -179,11 +227,14 @@ def test_remesas_pendientes():
     assert r0["estado_id"] == 1
     assert r0["regularizado"] == 0
     assert result["pendientes"][1]["fecha_vencimiento"] is None
-    sql, params, _limit = ex.calls[1]
+    sql, params, _limit = ex.calls[2]
     assert "regularizado = 0" in sql
     assert "deleted_at IS NULL" in sql
     assert "LIMIT %s" in sql
     assert params == [50]
+    sql_sum, _, _ = ex.calls[1]
+    assert "COALESCE(SUM(total_euros),0)" in sql_sum
+    assert "regularizado = 0" in sql_sum
 
 
 def test_build_finanzas_tools_registers_four():
@@ -205,7 +256,8 @@ def test_build_finanzas_tools_audit():
     fn_map = {t.__name__: t for t in tools}
     result = fn_map["remesas_pendientes"]()
     assert len(result["pendientes"]) == 1
-    assert result["total"] == Decimal("1")
+    assert result["n"] == Decimal("1")
+    assert result["total"] == Decimal("500.00")
     assert len(audit.calls) == 1
     assert audit.calls[0][0] == "remesas_pendientes"
     assert audit.calls[0][1] == "mcp"
@@ -221,5 +273,6 @@ def test_remesas_pendientes_count_true():
         ],
     )
     result = remesas_pendientes(ex)
-    assert result["total"] == Decimal("2")
+    assert result["n"] == Decimal("2")
+    assert result["total"] == Decimal("1250.50")
     assert len(result["pendientes"]) == 2

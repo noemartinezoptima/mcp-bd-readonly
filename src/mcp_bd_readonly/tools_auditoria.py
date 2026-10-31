@@ -31,8 +31,7 @@ def conciliar_remesas(ex) -> dict:
     emitido = _d(emit[0]["v"])
     acreditado = _d(acre[0]["v"])
     pendiente = emitido - acreditado
-    return {"emitido": emitido, "acreditado": acreditado, "pendiente": pendiente,
-            "pendiente_es": fmt_money(pendiente)}
+    return {"emitido": emitido, "acreditado": acreditado, "pendiente": pendiente}
 
 
 def saldos_cliente(ex, cliente_id) -> dict:
@@ -49,7 +48,7 @@ def saldos_cliente(ex, cliente_id) -> dict:
     cobrado = _d(cob[0]["v"])
     pendiente = facturado - cobrado
     return {"cliente_id": cliente_id, "facturado": facturado, "cobrado": cobrado,
-            "pendiente": pendiente, "pendiente_es": fmt_money(pendiente)}
+            "pendiente": pendiente}
 
 
 def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
@@ -68,7 +67,6 @@ def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
             "codigo": r["codigo"],
             "fecha": str(r["fecha_factura"]),
             "total": total,
-            "total_es": fmt_money(total),
             "severidad": sev,
         })
     return {"excepciones": out, "resumen": resumen}
@@ -77,7 +75,7 @@ def excepciones(ex, fecha_desde, fecha_hasta, umbral) -> dict:
 def informe_financiero(ex, fecha_desde, fecha_hasta, max_n: int = 200) -> dict:
     res = facturas_venta(ex, fecha_desde, fecha_hasta, max_n=max_n)
     md = (f"# Informe financiero {fecha_desde} → {fecha_hasta}\n\n"
-          f"Total periodo: **{res['total_periodo_es']}** (n={res['n_total']})\n\n"
+          f"Total periodo: **{fmt_money(res['total_periodo'])}** (n={res['n_total']})\n\n"
           "| Código | Base | IVA | Total |\n|---|---|---|---|\n" +
           "\n".join(f"| {f['codigo']} | {fmt_money(f['base'])} | {fmt_money(f['iva'])} | {fmt_money(f['total'])} |"
                     for f in res["facturas"]))
