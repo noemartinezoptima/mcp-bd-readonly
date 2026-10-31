@@ -17,8 +17,16 @@ REPO=/opt/mcp-optima-bd
 
 # runuser, no `sudo -u mcp`: ya corremos como root, sudo de nuevo aquí
 # añadiría una capa de autenticación innecesaria y potencialmente bloqueante.
+#
+# core.fileMode=false + checkout --force: este checkout es un DEPLOY TARGET,
+# no un workspace de desarrollo. Un chmod/chown manual posterior al deploy
+# (como el que se hizo a mano para dejar remote-deploy.sh en root:root) deja
+# el bit de ejecución "modificado" a ojos de git y el siguiente checkout
+# aborta con "local changes would be overwritten" (confirmado: 2º disparo
+# real, 31-oct-2026). Nunca debe bloquear un deploy por eso.
+runuser -u mcp -- git -C "$REPO" config core.fileMode false
 runuser -u mcp -- git -C "$REPO" fetch --tags --quiet
-runuser -u mcp -- git -C "$REPO" checkout --quiet "$TAG"
+runuser -u mcp -- git -C "$REPO" checkout --quiet --force "$TAG"
 runuser -u mcp -- "$REPO/.venv/bin/pip" install -q -e "$REPO"
 
 systemctl restart mcp-optima-bd
