@@ -33,7 +33,7 @@ REPO=/opt/mcp-optima-bd
 # aborta con "local changes would be overwritten" (confirmado: 2º disparo
 # real, 31-oct-2026). Nunca debe bloquear un deploy por eso.
 runuser -u mcp -- git -C "$REPO" config core.fileMode false
-runuser -u mcp -- git -C "$REPO" fetch --tags --quiet
+runuser -u mcp -- git -C "$REPO" fetch --tags --verbose
 runuser -u mcp -- git -C "$REPO" checkout --quiet --force "$TAG"
 runuser -u mcp -- "$REPO/.venv/bin/pip" install -q -e "$REPO"
 
