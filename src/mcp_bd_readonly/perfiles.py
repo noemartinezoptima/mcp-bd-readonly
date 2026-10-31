@@ -31,6 +31,7 @@ CORE = frozenset({
     "run_query",
     "resolve_domain_term",
     "consultar_memoria",
+    "run_script",
 })
 
 CONTABILIDAD = frozenset({
