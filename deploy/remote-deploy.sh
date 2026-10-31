@@ -6,6 +6,14 @@
 # único argumento (el tag) antes de tocar nada.
 set -euo pipefail
 
+# Log persistente: un fallo silencioso del deploy automático (confirmado:
+# 4º disparo real, 31-oct-2026, exit 1 sin NINGÚN output visible ni por SSH
+# directo ni por el workflow) no se puede diagnosticar sin rastro en disco.
+LOG=/var/lib/mcp-optima-bd/deploy.log
+exec > >(tee -a "$LOG") 2> >(tee -a "$LOG" >&2)
+echo "=== deploy $(date -Is) tag=${1:-<ninguno>} ==="
+set -x
+
 TAG="${1:-}"
 
 if [[ ! "$TAG" =~ ^mcp-remote-v[0-9]+\.[0-9]+$ ]]; then
@@ -25,7 +33,13 @@ REPO=/opt/mcp-optima-bd
 # aborta con "local changes would be overwritten" (confirmado: 2º disparo
 # real, 31-oct-2026). Nunca debe bloquear un deploy por eso.
 runuser -u mcp -- git -C "$REPO" config core.fileMode false
-runuser -u mcp -- git -C "$REPO" fetch --tags --quiet
+# --force --prune-tags: si un tag se borra y se recrea en remoto (limpieza de
+# tags de prueba, 31-oct-2026), el checkout local se queda con el viejo y
+# `git fetch --tags` sin --force lo rechaza con "would clobber existing tag"
+# — y falla el fetch COMPLETO (branches incluidas), sin mensaje visible bajo
+# --quiet. 4º disparo real, mismo día. El checkout es un deploy target: el
+# remoto manda siempre, sin negociar con tags locales obsoletos.
+runuser -u mcp -- git -C "$REPO" fetch --tags --force --prune --prune-tags --quiet
 runuser -u mcp -- git -C "$REPO" checkout --quiet --force "$TAG"
 runuser -u mcp -- "$REPO/.venv/bin/pip" install -q -e "$REPO"
 
