@@ -38,24 +38,31 @@ def test_sin_perfil_registra_todas_las_tools(tmp_path):
     assert len(_nombres(tmp_path, "todas")) == 39
 
 
-def test_perfil_contabilidad_deja_22_tools(tmp_path):
+def test_perfil_contabilidad_deja_24_tools(tmp_path):
     nombres = _nombres(tmp_path, "contabilidad")
     assert nombres == PERFILES["contabilidad"]
-    assert len(nombres) == 22
+    assert len(nombres) == 24
     assert "run_query" in nombres and "balance" in nombres
     assert "stock_actual" not in nombres
     # El entrenamiento no puede quedar inaccesible con un perfil de dominio:
     # el cliente recibiría "Unknown tool" al intentar consultar memoria.json.
     assert "consultar_memoria" in nombres
+    assert "recordar_consulta" in nombres
     assert "run_script" in nombres
+    # Las INSTRUCTIONS la mencionan como alternativa a resolve_domain_term
+    # para CUALQUIER perfil; en SOLO_TODAS apuntaba a "Unknown tool" en
+    # cuanto el perfil activo no fuera "todas" (bug real, 1-nov-2026).
+    assert "find_related_queries" in nombres
 
 
 def test_perfiles_de_dominio_mas_pequenos(tmp_path):
-    assert len(_nombres(tmp_path, "operaciones")) == 12
-    assert len(_nombres(tmp_path, "excel")) == 11
+    assert len(_nombres(tmp_path, "operaciones")) == 14
+    assert len(_nombres(tmp_path, "excel")) == 13
     for perfil in ("operaciones", "excel"):
         assert "consultar_memoria" in _nombres(tmp_path, perfil)
+        assert "recordar_consulta" in _nombres(tmp_path, perfil)
         assert "run_script" in _nombres(tmp_path, perfil)
+        assert "find_related_queries" in _nombres(tmp_path, perfil)
 
 
 def test_core_presente_en_todos_los_perfiles():

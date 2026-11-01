@@ -24,6 +24,10 @@ log = logging.getLogger(__name__)
 # `consultar_memoria` es una de ellas: lo aprendido al corregir una frase vale
 # igual en contabilidad que en operaciones, y con ella en SOLO_TODAS un perfil
 # de dominio dejaba el entrenamiento inaccesible ("Unknown tool").
+# `find_related_queries` igual: las INSTRUCTIONS la mencionan como alternativa
+# a resolve_domain_term para CUALQUIER perfil — con ella en SOLO_TODAS, un
+# perfil de dominio (p. ej. "contabilidad", el que corre hoy en prod) hacía
+# que esa instrucción apuntara a una tool inexistente ("Unknown tool").
 CORE = frozenset({
     "list_databases",
     "list_tables",
@@ -31,7 +35,9 @@ CORE = frozenset({
     "run_query",
     "resolve_domain_term",
     "consultar_memoria",
+    "recordar_consulta",
     "run_script",
+    "find_related_queries",
 })
 
 CONTABILIDAD = frozenset({
@@ -66,8 +72,6 @@ SOLO_TODAS = frozenset({
     "auditoria",
     "schema_snapshot",
     "refresh_schema",
-    "find_related_queries",
-    "recordar_consulta",
     "detectar_agente",
     "setup_ssh",
 })
