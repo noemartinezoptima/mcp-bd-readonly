@@ -55,6 +55,10 @@ SINONIMOS = {
         "balance", "hoja de balance", "activo", "pasivo", "patrimonio",
         "patrimonio neto", "situación", "situacion",
     ],
+    "tecnico": [
+        "tecnico", "tecnicos", "instalador", "instaladores", "profesional",
+        "profesionales", "operario", "operarios",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -178,6 +182,18 @@ CANONICOS_INFO = {
             "Grupo 3 (existencias) está vacío en esta contabilidad.",
         ],
     },
+    "tecnico": {
+        "tabla": "tecnicos (asignación a una OT vía la tabla puente ot_tecnico)",
+        "herramienta_mcp": "run_query",
+        "nota_uso": ("Técnico/instalador. tecnicos.nombre_comercial / nombre_fiscal / telefono. "
+                     "Asignación a una OT: ot_tecnico.tecnico_id + ot_id, con seleccionado=1 marcando "
+                     "el técnico elegido para esa OT (puede haber varias filas por ronda de llamadas)."),
+        "trampas": [
+            "NO hay columna tecnico_id en ots: pasar siempre por ot_tecnico.",
+            "ot_tecnico.seleccionado=1 es el técnico confirmado; otras filas son candidatos descartados.",
+            "El teléfono vive en tecnicos.telefono, sin prefijo país salvo que se añada.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -193,6 +209,7 @@ _ESPECIFICIDAD = {
     "pnl": 4,
     "stock": 5,
     "balance": 5,
+    "tecnico": 4,
 }
 
 
