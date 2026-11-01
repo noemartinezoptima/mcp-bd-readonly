@@ -62,6 +62,16 @@ def test_mano_de_obra_no_dispara_ots():
     assert any(c["canonico"] == "facturas_compra" for c in out)
 
 
+def test_que_efectos_no_dispara_efectos_pago():
+    """Falso positivo real (probado en vivo, 1-nov-2026): 'efectos' suelto es
+    efectos de pago, pero 'que efectos ha tenido' es consecuencias, no cobros."""
+    out = normalizar_texto(
+        "que efectos ha tenido la subida de precios en la facturacion de este trimestre"
+    )
+    assert not any(c["canonico"] == "efectos_pago" for c in out)
+    assert any(c["canonico"] == "facturas_venta" for c in out)
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)

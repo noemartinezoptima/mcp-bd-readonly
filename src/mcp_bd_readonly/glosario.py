@@ -241,7 +241,11 @@ _ESPECIFICIDAD = {
 # antes de buscar verbos prohibidos: así "obra" dentro de la locución no
 # cuenta, pero el resto de la frase (p. ej. "pagado", "subcontratado") sigue
 # intacto para las demás coincidencias.
-_LOCUCIONES_EXCLUIDAS = ("mano de obra",)
+# "que efectos ha tenido X" es el sentido de "consecuencias", no "efectos de
+# pago" (letras/pagarés) — otro falso positivo real, probado en vivo
+# (1-nov-2026): "que efectos ha tenido el cambio de tarifa en los pagos..."
+# disparaba efectos_pago aunque la frase no habla de cobros/remesas.
+_LOCUCIONES_EXCLUIDAS = ("mano de obra", "que efectos")
 
 
 def _norm(texto: str) -> str:
