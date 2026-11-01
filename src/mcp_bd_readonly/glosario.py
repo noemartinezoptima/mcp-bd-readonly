@@ -44,7 +44,7 @@ SINONIMOS = {
         "margen", "beneficio", "ganancia", "rentabilidad",
     ],
     "pnl": [
-        "pnl", "p&l", "cuenta de resultados", "pérdidas y ganancias",
+        "pnl", "p&l", "pyg", "cuenta de resultados", "pérdidas y ganancias",
         "perdidas y ganancias", "ebitda", "resultado", "resultado del ejercicio",
     ],
     "stock": [
