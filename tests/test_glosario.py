@@ -96,6 +96,16 @@ def test_resolver_sin_coincidencias():
     assert "sugerencias" not in r
 
 
+def test_efectos_pago_lista_otras_tools_no_solo_remesas_pendientes():
+    """resolve_domain_term solo recomendaba remesas_pendientes para TODO lo que
+    toca efectos_pago, aunque la tabla la usan 4 tools distintas (aging,
+    conciliación, DSO/DPO evolutivo). otras_tools cubre el resto."""
+    out = normalizar_texto("cobros pendientes")
+    info = next(c["info"] for c in out if c["canonico"] == "efectos_pago")
+    assert info["herramienta_mcp"] == "remesas_pendientes"
+    assert set(info["otras_tools"]) == {"conciliar_remesas", "aging_efectos", "dso_dpo_evolutivo"}
+
+
 def test_tool_registra_auditoria():
     audit = FakeAudit()
     tools = build_glosario_tools(audit)
