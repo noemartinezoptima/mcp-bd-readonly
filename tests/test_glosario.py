@@ -57,6 +57,16 @@ def test_cliente_a_razon_social():
     assert any(c["canonico"] == "cliente" for c in out)
 
 
+def test_tecnico_instalador_a_tecnico():
+    for frase in [
+        "qué técnico está asignado a esta obra",
+        "quién es el instalador de la tienda",
+        "qué operario hizo la reparación",
+    ]:
+        out = normalizar_texto(frase)
+        assert any(c["canonico"] == "tecnico" for c in out), frase
+
+
 def test_resolver_recomienda_canonico_correcto():
     casos = {
         "cuánto facturamos a kiko": "facturas_venta",
