@@ -75,6 +75,11 @@ CANONICOS_INFO = {
     "facturas_venta": {
         "tabla": "facturas_venta",
         "herramienta_mcp": "facturas_venta",
+        "otras_tools": {
+            "cuadre_factura": "comprobar que suma de líneas == total de cabecera de UNA factura",
+            "excepciones": "facturas sobre un umbral, clasificadas por materialidad",
+            "informe_financiero": "informe Markdown+CSV de un periodo (para compartir/exportar)",
+        },
         "nota_uso": ("Facturación/ventas. Dinero en total_euros e iva_euros; base = total_euros − iva_euros. "
                      "Filtrar deleted_at IS NULL."),
         "trampas": [
@@ -85,6 +90,11 @@ CANONICOS_INFO = {
     "efectos_pago": {
         "tabla": "efectos_pago",
         "herramienta_mcp": "remesas_pendientes",
+        "otras_tools": {
+            "conciliar_remesas": "total emitido vs acreditado (cuadre global, no por efecto)",
+            "aging_efectos": "pendientes agrupados por antigüedad (0-30/30-60/60-90/+90 días)",
+            "dso_dpo_evolutivo": "serie mensual de DSO (cobro) y DPO (pago) en días",
+        },
         "nota_uso": "Cobros/pagos/remesas/efectos. Pendiente = regularizado=0 (SUM(total_euros), canónico).",
         "trampas": [
             "Polimórfico: modelo_id=12 → FacturaVenta, 11 → FacturaCompra; relacion_id apunta al id de esa tabla, NO es FK.",
@@ -123,6 +133,9 @@ CANONICOS_INFO = {
     "cliente": {
         "tabla": "clientes",
         "herramienta_mcp": "detalle_establecimiento",
+        "otras_tools": {
+            "saldos_cliente": "facturado vs cobrado y pendiente de UN cliente concreto",
+        },
         "nota_uso": "Cliente de facturacion = clientes.razon_social.",
         "trampas": [
             "Usar razon_social; NO existe columna nombre_fiscal.",
@@ -132,6 +145,9 @@ CANONICOS_INFO = {
     "facturas_compra": {
         "tabla": "facturas_compra",
         "herramienta_mcp": "facturas_compra",
+        "otras_tools": {
+            "resumen_gastos_por_tipo": "gastos agregados por categoría (tipo_de_gasto) en un rango",
+        },
         "nota_uso": ("Gastos/compras. Dinero en base_euros/iva_euros/total_euros/total_coste_euros "
                      "(aquí base_euros SÍ existe). coste_directo=1 es coste directo (COGS), 0 es indirecto. "
                      "proveedor_nombre viene denormalizado; proveedor_id -> proveedores. pagada=0 pendiente, 1 pagada."),
@@ -165,6 +181,10 @@ CANONICOS_INFO = {
     "stock": {
         "tabla": "stock_articles + stock_locations + stock_movements",
         "herramienta_mcp": "stock_actual",
+        "otras_tools": {
+            "stock_por_ubicacion": "stock agrupado por ubicación/almacén",
+            "movimientos_stock": "histórico de movimientos de un artículo/ubicación",
+        },
         "nota_uso": ("Stock actual = último resulting_stock por (article_id, location_id). "
                      "stock_articles = productos; stock_locations = ubicaciones/almacenes."),
         "trampas": [
