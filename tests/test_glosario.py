@@ -52,6 +52,16 @@ def test_obra_ot_a_ots():
     assert any(c["canonico"] == "ots" for c in out)
 
 
+def test_mano_de_obra_no_dispara_ots():
+    """Falso positivo real (probado en vivo, 1-nov-2026): 'obra' sola es OT,
+    pero dentro de 'mano de obra' es coste de personal, no una OT."""
+    out = normalizar_texto("cuánto hemos pagado este mes en mano de obra de los subcontratados")
+    assert not any(c["canonico"] == "ots" for c in out)
+    # El resto de la frase sigue intacto: no se pierde nada más.
+    assert any(c["canonico"] == "efectos_pago" for c in out)
+    assert any(c["canonico"] == "facturas_compra" for c in out)
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
