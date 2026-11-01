@@ -72,6 +72,14 @@ def test_que_efectos_no_dispara_efectos_pago():
     assert any(c["canonico"] == "facturas_venta" for c in out)
 
 
+def test_pyg_mapea_a_pnl():
+    """Gap real detectado en vivo (1-nov-2026): 'PyG' es la abreviatura mas
+    comun de perdidas y ganancias en jerga financiera española, pero no
+    estaba en los sinonimos de pnl ('cuadro de PyG' no devolvia nada)."""
+    out = normalizar_texto("necesito el cuadro de pyg del año para la reunión con el banco")
+    assert any(c["canonico"] == "pnl" for c in out)
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
