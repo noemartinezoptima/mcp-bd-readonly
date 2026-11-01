@@ -233,6 +233,17 @@ _ESPECIFICIDAD = {
 }
 
 
+# Expresiones donde una palabra-sinónimo pierde su sentido de dominio. "obra"
+# sola es "OT/parte de trabajo", pero en "mano de obra" es coste de personal
+# (facturas_compra/efectos_pago), no una OT — falso positivo real, detectado
+# probando resolve_domain_term en vivo (1-nov-2026). Se quita la locución
+# ANTES de buscar sinónimos sueltos, igual que security.py quita literales
+# antes de buscar verbos prohibidos: así "obra" dentro de la locución no
+# cuenta, pero el resto de la frase (p. ej. "pagado", "subcontratado") sigue
+# intacto para las demás coincidencias.
+_LOCUCIONES_EXCLUIDAS = ("mano de obra",)
+
+
 def _norm(texto: str) -> str:
     t = unicodedata.normalize("NFD", texto.lower())
     return "".join(ch for ch in t if unicodedata.category(ch) != "Mn")
@@ -244,6 +255,8 @@ def normalizar_texto(texto: str) -> list[dict]:
     if not texto:
         return []
     ntexto = _norm(texto)
+    for locucion in _LOCUCIONES_EXCLUIDAS:
+        ntexto = ntexto.replace(_norm(locucion), "")
     palabras = [p for p in re.split(r"\W+", ntexto) if p]
     orden = []
     for canonico, sinonimos in SINONIMOS.items():
