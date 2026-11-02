@@ -116,6 +116,44 @@ def test_tarifa_tiene_termino_canonico():
     assert r["recomendado"] == "tarifa"
 
 
+def test_evaluacion_desempeno_no_se_queda_en_tecnico_generico():
+    """Gap real detectado en vivo (2-nov-2026): 'evaluaciones de desempeño del
+    tecnico' solo matcheaba 'tecnico' generico, pero la tabla real especifica
+    es valoraciones_tecnico (distinta de 'evaluaciones', que es QC de
+    establecimientos pese al nombre parecido)."""
+    r = resolver("cual es el historico de evaluaciones de desempeño de este tecnico")
+    assert r["recomendado"] == "evaluacion"
+
+
+def test_contrato_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'contrato' no mapeaba a nada
+    pese a existir tabla real 'contratos' (vigencia, cliente, establecimientos
+    en JSON)."""
+    r = resolver("quiero ver el contrato vigente de este cliente y cuando vence")
+    assert r["recomendado"] == "contrato"
+
+
+def test_ticket_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'tickets' no mapeaba a nada
+    pese a existir tabla real 'tickets' (tickets internos de desarrollo/soporte,
+    distintos de las incidencias de cliente/OT)."""
+    r = resolver("cuántos tickets de soporte lleva abiertos este cliente sin resolver")
+    assert r["recomendado"] == "ticket"
+
+
+def test_centro_de_coste_no_lo_tapa_establecimiento():
+    """Falso positivo real detectado en vivo (2-nov-2026): 'centro' solo es
+    sinonimo de tienda/establecimiento, pero 'centro de coste' es un concepto
+    contable totalmente distinto (tabla real centros_coste)."""
+    r = resolver("dame el centro de coste al que se imputó esta factura de compra")
+    assert r["recomendado"] == "centro_coste"
+    # 'centro' sigue apareciendo como coincidencia secundaria (como 'activo'
+    # con activo_fijo): no se pierde nada, solo deja de ser el recomendado.
+    assert any(c["canonico"] == "establecimiento" for c in resolver(
+        "dame el centro de coste al que se imputó esta factura de compra"
+    )["coincidencias"])
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)

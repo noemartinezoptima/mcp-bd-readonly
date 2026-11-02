@@ -71,6 +71,19 @@ SINONIMOS = {
     "tarifa": [
         "tarifa", "tarifas",
     ],
+    "evaluacion": [
+        "evaluacion", "evaluaciones", "valoracion", "valoraciones",
+        "desempeño", "desempeno",
+    ],
+    "contrato": [
+        "contrato", "contratos",
+    ],
+    "ticket": [
+        "ticket", "tickets",
+    ],
+    "centro_coste": [
+        "centro de coste", "centros de coste", "centro de costes", "centros de costes",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -293,6 +306,52 @@ CANONICOS_INFO = {
             "No confundir con una tarifa de cambio de divisa (eso es conversion_monedas/exchange_rates, no esta tabla).",
         ],
     },
+    "evaluacion": {
+        "tabla": "valoraciones_tecnico",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "evaluaciones": "evaluaciones de calidad (QC) de UN ESTABLECIMIENTO (visitas/preguntas), no del técnico",
+        },
+        "nota_uso": ("Valoración/evaluación de desempeño de un técnico tras una OT concreta: "
+                     "valoraciones_tecnico.nota + observaciones, ligada a tecnico_id + ot_id."),
+        "trampas": [
+            "NO confundir con 'evaluaciones' (tabla de QC de establecimientos, dominio distinto pese al nombre parecido).",
+            "Una fila por OT evaluada, no una nota acumulada única por técnico: hay que agregar (AVG/COUNT) si se pide 'la nota' de un técnico.",
+        ],
+    },
+    "contrato": {
+        "tabla": "contratos",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "contratos_establecimientos": "pivote contrato↔establecimiento (alternativa/legacy a contratos.establecimientos_id en JSON)",
+        },
+        "nota_uso": ("Contrato de servicio con un cliente. contratos.cliente_id; contratos.establecimientos_id es "
+                     "un JSON con los ids de tienda cubiertos (no una FK simple); fecha_firma/canceled_date marcan vigencia."),
+        "trampas": [
+            "establecimientos_id es JSON (varias tiendas por contrato), no una columna FK única: no se puede JOIN directo.",
+            "Vigente = canceled_date IS NULL; canceled_date NOT NULL es un contrato cancelado, no vencido por fecha.",
+            "No confundir con bonus_contratos_perdidos (esa tabla es para el cálculo del bono, dominio distinto).",
+        ],
+    },
+    "ticket": {
+        "tabla": "tickets",
+        "herramienta_mcp": "run_query",
+        "nota_uso": ("Tickets internos de desarrollo/soporte (incidencias del propio sistema: issue_jira, "
+                     "sprint_id, epic_id, categoria_id), NO incidencias de cliente/OT."),
+        "trampas": [
+            "NO es lo mismo que 'incidencias' (quejas/incidencias de cliente o de OT) ni que 'clientes_incidencias'.",
+            "check es un booleano (revisado/no), no el estado del ticket: el estado real va en estado_id.",
+        ],
+    },
+    "centro_coste": {
+        "tabla": "centros_coste",
+        "herramienta_mcp": "run_query",
+        "nota_uso": ("Centro de coste (dimensión contable), DISTINTO de 'centro' como sinónimo de tienda/establecimiento. "
+                     "Se referencia desde fixed_assets.centro_coste_id y otras tablas de gasto."),
+        "trampas": [
+            "'centro'/'centros' a secas significan tienda (establecimiento); solo la frase completa 'centro(s) de coste(s)' es esta tabla.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -320,6 +379,16 @@ _ESPECIFICIDAD = {
     # vivo (2-nov-2026).
     "activo_fijo": 6,
     "tarifa": 4,
+    "evaluacion": 4,
+    "contrato": 5,
+    "ticket": 4,
+    # 8 (por encima de establecimiento=7): "centro de coste" también matchea
+    # "centro" (sinónimo de establecimiento) -- debe ganar el concepto contable
+    # especifico, no la tienda. No hace falta excluir la locución: al ser mas
+    # especifico ya gana como recomendado, y establecimiento sigue apareciendo
+    # como coincidencia secundaria (igual que "activo" junto a activo_fijo).
+    # Falso positivo real, detectado en vivo (2-nov-2026).
+    "centro_coste": 8,
 }
 
 
