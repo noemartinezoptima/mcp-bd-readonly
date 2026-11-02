@@ -65,7 +65,8 @@ SINONIMOS = {
         "bono", "bonos", "comision", "comisiones", "bonus",
     ],
     "presupuesto": [
-        "presupuesto", "presupuestos",
+        "presupuesto", "presupuestos", "presupuestado", "presupuestada",
+        "presupuestados", "presupuestadas",
     ],
     "activo_fijo": [
         "activo fijo", "activos fijos", "inmovilizado", "inmovilizados",
