@@ -218,8 +218,12 @@ CANONICOS_INFO = {
     "margen": {
         "tabla": "facturas_venta + facturas_compra (coste_directo=1)",
         "herramienta_mcp": "margen",
+        "otras_tools": {
+            "margen_por_equipos": "margen por tramo de antigüedad (60-90/90-120/120-150 días) agrupado por equipo",
+        },
         "nota_uso": ("Margen bruto = ventas netas (total − iva) − SUM(facturas_compra.total_coste_euros "
-                     "WHERE coste_directo=1) en el mismo rango de fechas."),
+                     "WHERE coste_directo=1) en el mismo rango de fechas. Si la pregunta menciona un EQUIPO "
+                     "concreto, usar margen_por_equipos en vez de recalcular a mano."),
         "trampas": [
             "Usar total_coste_euros (no base_euros) para el coste directo.",
             "Ventas NETAS (total_euros − iva_euros); facturas_venta no tiene base_euros.",
@@ -263,6 +267,9 @@ CANONICOS_INFO = {
     "tecnico": {
         "tabla": "tecnicos (asignación a una OT vía la tabla puente ot_tecnico)",
         "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "technician_agreements": "acuerdos/contratos firmados por el técnico (signing_date, attachment_id del documento firmado)",
+        },
         "nota_uso": ("Técnico/instalador. tecnicos.nombre_comercial / nombre_fiscal / telefono. "
                      "Asignación a una OT: ot_tecnico.tecnico_id + ot_id, con seleccionado=1 marcando "
                      "el técnico elegido para esa OT (puede haber varias filas por ronda de llamadas)."),
@@ -357,6 +364,7 @@ CANONICOS_INFO = {
         "herramienta_mcp": "run_query",
         "otras_tools": {
             "contratos_establecimientos": "pivote contrato↔establecimiento (alternativa/legacy a contratos.establecimientos_id en JSON)",
+            "contract_invoicing_aggregations": "configuración de facturación CONSOLIDADA del contrato (billing_frequency/billing_day, per_establecimiento=1 si se agrupa por tienda)",
         },
         "nota_uso": ("Contrato de servicio con un cliente. contratos.cliente_id; contratos.establecimientos_id es "
                      "un JSON con los ids de tienda cubiertos (no una FK simple); fecha_firma/canceled_date marcan vigencia."),
@@ -569,7 +577,13 @@ _ESPECIFICIDAD = {
 # pago" (letras/pagarés) — otro falso positivo real, probado en vivo
 # (1-nov-2026): "que efectos ha tenido el cambio de tarifa en los pagos..."
 # disparaba efectos_pago aunque la frase no habla de cobros/remesas.
-_LOCUCIONES_EXCLUIDAS = ("mano de obra", "que efectos")
+# "días de margen" es holgura de plazo (antes de que venza un SLA), no margen
+# financiero — otro falso positivo real, probado en vivo (2-nov-2026): "cuántos
+# días de margen tenemos antes de que venza el plazo SLA" disparaba el
+# canónico "margen" (financiero) sin que la pregunta tuviera nada que ver con
+# ventas/compras. No hay tabla dedicada a "holgura de SLA" en el esquema, así
+# que se excluye sin más (mismo patrón que "mano de obra").
+_LOCUCIONES_EXCLUIDAS = ("mano de obra", "que efectos", "dias de margen")
 
 
 def _norm(texto: str) -> str:

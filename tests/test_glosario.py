@@ -62,6 +62,16 @@ def test_mano_de_obra_no_dispara_ots():
     assert any(c["canonico"] == "facturas_compra" for c in out)
 
 
+def test_dias_de_margen_no_dispara_margen_financiero():
+    """Falso positivo real (probado en vivo, 2-nov-2026): 'margen' suelto es
+    margen financiero, pero 'días de margen' (antes de vencer un SLA) es
+    holgura de plazo, sin relación con ventas/compras."""
+    out = normalizar_texto("cuántos días de margen tenemos antes de que venza el plazo SLA de esta OT")
+    assert not any(c["canonico"] == "margen" for c in out)
+    # 'margen' en sentido financiero sigue funcionando igual.
+    assert any(c["canonico"] == "margen" for c in normalizar_texto("qué margen tenemos este mes"))
+
+
 def test_que_efectos_no_dispara_efectos_pago():
     """Falso positivo real (probado en vivo, 1-nov-2026): 'efectos' suelto es
     efectos de pago, pero 'que efectos ha tenido' es consecuencias, no cobros."""
