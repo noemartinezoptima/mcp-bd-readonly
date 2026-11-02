@@ -55,6 +55,7 @@ SINONIMOS = {
     "balance": [
         "balance", "hoja de balance", "activo", "pasivo", "patrimonio",
         "patrimonio neto", "situación", "situacion",
+        "cuenta contable", "cuentas contables", "plan contable",
     ],
     "tecnico": [
         "tecnico", "tecnicos", "instalador", "instaladores", "profesional",

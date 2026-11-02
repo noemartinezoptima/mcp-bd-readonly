@@ -277,6 +277,14 @@ def test_facturas_compra_borrador_apunta_a_draft_purchase_invoices():
     assert any("borrador" in t for t in info["trampas"])
 
 
+def test_cuenta_contable_mapea_a_balance():
+    """Gap real detectado en vivo (2-nov-2026): 'cuentas contables' no
+    mapeaba a NADA pese a que balance ya usa accounting_accounts como tabla
+    base."""
+    r = resolver("qué cuentas contables tienen saldo negativo a cierre de ejercicio")
+    assert r["recomendado"] == "balance"
+
+
 def test_embargo_tiene_termino_canonico():
     """Gap real detectado en vivo (2-nov-2026): 'embargo'/'retenciones
     judiciales' no mapeaba a nada pese a existir tabla real
