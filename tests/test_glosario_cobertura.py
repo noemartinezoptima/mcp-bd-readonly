@@ -8,18 +8,33 @@ paralelo a la sesión del 1/2-nov-2026 que generó la mayoría de los fixes de
 `glosario.py`).
 
 Este test convierte ese proceso manual en un chequeo automático de CI: carga
-la lista real de tablas de `data/schema_snapshot.json` y falla si aparece
-alguna que el glosario no menciona (ni como "tabla" de un canónico, ni como
-entrada de "otras_tools") Y que tampoco está en la lista de exclusión de
-abajo. No sustituye probar frases reales -- el glosario puede seguir
-mapeando una tabla al concepto equivocado -- pero sí elimina la clase de bug
-"faltaba por completo": toda tabla nueva que aparezca en el esquema real
-obliga a decidir EXPLÍCITAMENTE (en este fichero) si merece término propio o
-si es ruido de infraestructura/catálogo, en vez de depender de que alguien
-la pregunte en una sesión de pruebas.
+la lista real de tablas de `tests/fixtures/tablas_reales.json` (snapshot
+SOLO de nombres de tabla, congelado y versionado en git -- `data/` entero
+está en .gitignore porque es el directorio de runtime real, con DB de claves,
+logs de auditoría, etc., así que el `schema_snapshot.json` real NUNCA está
+disponible en CI) y falla si aparece alguna tabla que el glosario no menciona
+(ni como "tabla" de un canónico, ni como entrada de "otras_tools") Y que
+tampoco está en la lista de exclusión de abajo. No sustituye probar frases
+reales -- el glosario puede seguir mapeando una tabla al concepto
+equivocado -- pero sí elimina la clase de bug "faltaba por completo": toda
+tabla nueva que aparezca en el esquema real obliga a decidir EXPLÍCITAMENTE
+(en este fichero) si merece término propio o si es ruido de
+infraestructura/catálogo, en vez de depender de que alguien la pregunte en
+una sesión de pruebas.
 
-Si este test falla tras una actualización de `schema_snapshot.json` (tabla
-nueva en producción):
+El fixture es un snapshot puntual: cuando el esquema real cambie de forma
+notable, regenerarlo con:
+    .venv/bin/python -c "
+    import json
+    d = json.load(open('data/schema_snapshot.json'))
+    tables = sorted(d['tables'].keys())
+    json.dump({'generated_at': d['generated_at'], 'tables': tables},
+              open('tests/fixtures/tablas_reales.json', 'w', encoding='utf-8'),
+              ensure_ascii=False, indent=2)
+    "
+y volver a correr este test para que señale las tablas nuevas.
+
+Si este test falla tras regenerar el fixture (tabla nueva en producción):
   1. Si es un concepto de negocio real -> añadir un canónico en glosario.py
      (ver CANONICOS_INFO) siguiendo el patrón de los fixes de esta sesión.
   2. Si es infraestructura/catálogo/framework sin valor de glosario directo
@@ -31,7 +46,7 @@ import json
 import re
 from pathlib import Path
 
-SCHEMA_SNAPSHOT = Path(__file__).parent.parent / "data" / "schema_snapshot.json"
+TABLAS_FIXTURE = Path(__file__).parent / "fixtures" / "tablas_reales.json"
 GLOSARIO_SRC = Path(__file__).parent.parent / "src" / "mcp_bd_readonly" / "glosario.py"
 
 # Patrones: tablas que por su nombre son claramente vistas, copias de
@@ -155,8 +170,8 @@ TABLAS_EXCLUIDAS = (
 
 
 def _tablas_reales() -> set[str]:
-    data = json.loads(SCHEMA_SNAPSHOT.read_text(encoding="utf-8"))
-    return set(data["tables"].keys())
+    data = json.loads(TABLAS_FIXTURE.read_text(encoding="utf-8"))
+    return set(data["tables"])
 
 
 def _patron_excluido(tabla: str) -> bool:
