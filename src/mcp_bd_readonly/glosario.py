@@ -124,6 +124,12 @@ SINONIMOS = {
         "embargo", "embargos", "embargado", "embargados", "retencion judicial",
         "retenciones judiciales", "retencion salarial", "retenciones salariales",
     ],
+    "cambio_nif": [
+        "cambio de nif", "cambios de nif", "nif anterior", "historial de nif", "nif",
+    ],
+    "perfil_fiscal": [
+        "perfil fiscal", "perfiles fiscales",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -548,6 +554,26 @@ CANONICOS_INFO = {
             "NO confundir con 'retención' fiscal/IRPF (tipo_impositivo/facturas): aquí es retención JUDICIAL de nómina.",
         ],
     },
+    "cambio_nif": {
+        "tabla": "client_nif_change_log",
+        "herramienta_mcp": "run_query",
+        "nota_uso": "Historial de cambios de NIF de un cliente: old_nif/new_nif, changed_by (quién lo autorizó/registró), created_at.",
+        "trampas": [
+            "client_id es la FK a clientes, no cliente_id como en otras tablas de esta BD.",
+        ],
+    },
+    "perfil_fiscal": {
+        "tabla": "company_tax_profiles",
+        "herramienta_mcp": "run_query",
+        "nota_uso": ("Perfil fiscal de una empresa (propia o de un tercero según profile_type): tax_id/tax_id_type, "
+                     "flags is_subject_to_vat/is_vat_exempt/uses_reverse_charge/uses_equivalence_surcharge/"
+                     "requires_electronic_invoice, y los tipos de IVA por defecto "
+                     "(default_sales_tax_rate_id/default_purchase_tax_rate_id -> tipo_impositivo)."),
+        "trampas": [
+            "empresa_id es varchar, no FK numérica a una tabla 'empresas'.",
+            "profile_type distingue si es el perfil de LA PROPIA empresa ('own_company') o de un tercero.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -616,6 +642,8 @@ _ESPECIFICIDAD = {
     # no tenian ningun termino, pese a ser tablas de negocio reales.
     "forma_pago": 6,
     "embargo": 5,
+    "cambio_nif": 4,
+    "perfil_fiscal": 4,
 }
 
 

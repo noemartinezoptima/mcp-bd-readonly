@@ -296,6 +296,24 @@ def test_cuenta_contable_mapea_a_balance():
     assert r["recomendado"] == "balance"
 
 
+def test_cambio_nif_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'cuándo cambió el NIF' no
+    mapeaba a nada pese a existir tabla real client_nif_change_log
+    (old_nif/new_nif/changed_by)."""
+    r = resolver("cuándo cambió el NIF este cliente y quién lo autorizó")
+    assert r["recomendado"] == "cambio_nif"
+    # 'nif' suelto en otro contexto no debe tapar la pregunta real.
+    r2 = resolver("cuánto facturamos a este cliente con NIF B12345678")
+    assert r2["recomendado"] == "facturas_venta"
+
+
+def test_perfil_fiscal_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'perfil fiscal de una empresa'
+    no mapeaba a nada pese a existir tabla real company_tax_profiles."""
+    r = resolver("qué perfil fiscal tiene configurado esta empresa del grupo")
+    assert r["recomendado"] == "perfil_fiscal"
+
+
 def test_embargo_tiene_termino_canonico():
     """Gap real detectado en vivo (2-nov-2026): 'embargo'/'retenciones
     judiciales' no mapeaba a nada pese a existir tabla real
