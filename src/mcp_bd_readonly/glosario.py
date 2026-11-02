@@ -62,6 +62,15 @@ SINONIMOS = {
     "bono": [
         "bono", "bonos", "comision", "comisiones", "bonus",
     ],
+    "presupuesto": [
+        "presupuesto", "presupuestos",
+    ],
+    "activo_fijo": [
+        "activo fijo", "activos fijos", "inmovilizado", "inmovilizados",
+    ],
+    "tarifa": [
+        "tarifa", "tarifas",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -237,6 +246,53 @@ CANONICOS_INFO = {
             "bonus_config es key-value genérico (columnas key/value), no una tabla de parámetros tipada.",
         ],
     },
+    "presupuesto": {
+        "tabla": "presupuestos",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "presupuestos_lineas_facturacion": "líneas (artículo/cantidad/precio) de UN presupuesto",
+            "presupuestos_solicitados": "solicitudes de precio a varios técnicos/proveedores para un presupuesto, con seleccionado=1 marcando la elegida",
+        },
+        "nota_uso": ("Presupuesto/oferta a cliente. presupuestos.ot_id la liga a una OT; estado_id -> estados "
+                     "(enviado/aceptado/rechazado...). Dinero en total_euros/iva_euros (igual que facturas_venta)."),
+        "trampas": [
+            "NO tiene cliente_id: el cliente va en cliente_nif (texto), no FK a clientes.",
+            "NO existe base_euros: se deriva (total_euros − iva_euros), igual que en facturas_venta.",
+            "presupuestos_solicitados.seleccionado=1 es la solicitud ganadora entre varias (mismo patrón que ot_tecnico.seleccionado=1).",
+        ],
+    },
+    "activo_fijo": {
+        "tabla": "fixed_assets",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "fixed_asset_movements": "histórico de movimientos (alta/baja/depreciación/deterioro) de UN activo",
+            "fixed_asset_categories": "categorías de activo (determinan cuentas contables por defecto)",
+            "fixed_asset_schedule_lines": "plan de amortización calculado línea a línea",
+        },
+        "nota_uso": ("Activo fijo / inmovilizado (submódulo de amortización, distinto del balance contable "
+                     "genérico aunque enlaza con accounting_accounts vía asset_account_id/accumulated_account_id/"
+                     "expense_account_id). status (draft/active/disposed/...) marca el estado; disposed_on + "
+                     "disposal_proceeds es la baja."),
+        "trampas": [
+            "NO confundir con 'balance' (accounting_*): fixed_assets es el submódulo de inmovilizado, no cuentas contables en sí.",
+            "Baja = disposed_on IS NOT NULL (o status='disposed'); el motivo va en fixed_asset_movements.notes/movement_type, no en una columna de fixed_assets.",
+            "empresa_id es varchar(32), no un id numérico de la tabla empresas: revisar el tipo antes de hacer JOIN.",
+        ],
+    },
+    "tarifa": {
+        "tabla": "tarifas",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "tecnicos_tarifas": "tarifas de PAGO a técnicos (coste por hora/desplazamiento), sentido opuesto a 'tarifas'",
+        },
+        "nota_uso": ("Tarifa de precio AL CLIENTE por tipo de OT/prioridad: tarifas.cliente_id + ots_tipo_id + "
+                     "prioridad_id determina mano_obra/desplazamiento (+ variantes _extra) y horas_sla/vencimiento."),
+        "trampas": [
+            "'tarifas' y 'tecnicos_tarifas' son tablas DISTINTAS con sentido opuesto: tarifas = precio al cliente; "
+            "tecnicos_tarifas = lo que se paga al técnico (por franja: laboral/noche/fin de semana/festivo/urgencia).",
+            "No confundir con una tarifa de cambio de divisa (eso es conversion_monedas/exchange_rates, no esta tabla).",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -257,6 +313,13 @@ _ESPECIFICIDAD = {
     # no efectos_pago -- "cobró" ahí es cobro de comisión de empleado, no de
     # cliente. Bug real detectado en vivo (1-nov-2026).
     "bono": 6,
+    "presupuesto": 5,
+    # 6 (por encima de balance=5): "activos fijos" tambien matchea "activo"
+    # (sinonimo de balance) via prefijo -- debe ganar el submodulo especifico
+    # de inmovilizado, no el balance contable generico. Gap real detectado en
+    # vivo (2-nov-2026).
+    "activo_fijo": 6,
+    "tarifa": 4,
 }
 
 

@@ -91,6 +91,31 @@ def test_bono_no_lo_tapa_efectos_pago():
     assert r["recomendado"] == "bono"
 
 
+def test_presupuesto_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'presupuesto' no mapeaba a nada
+    pese a existir tablas reales (presupuestos, presupuestos_solicitados,
+    presupuestos_lineas_facturacion)."""
+    r = resolver("cuántos presupuestos solicitados siguen sin respuesta del cliente")
+    assert r["recomendado"] == "presupuesto"
+
+
+def test_activo_fijo_no_lo_tapa_balance():
+    """Gap real detectado en vivo (2-nov-2026): 'activos fijos' matcheaba solo
+    'activo' (sinonimo generico de balance/PGC), pero la tabla real
+    (fixed_assets) es un submodulo especifico de inmovilizado, distinto del
+    balance contable general."""
+    r = resolver("qué activos fijos se han dado de baja este año y por qué motivo")
+    assert r["recomendado"] == "activo_fijo"
+
+
+def test_tarifa_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'tarifa' no mapeaba a nada
+    pese a existir tabla real 'tarifas' (precio al cliente, distinta de
+    tecnicos_tarifas que es el coste pagado al tecnico)."""
+    r = resolver("quiero el histórico de precios de la tarifa de este cliente")
+    assert r["recomendado"] == "tarifa"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
