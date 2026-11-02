@@ -80,6 +80,16 @@ def test_pyg_mapea_a_pnl():
     assert any(c["canonico"] == "pnl" for c in out)
 
 
+def test_gastado_mapea_a_facturas_compra():
+    """Falso negativo real detectado en vivo (2-nov-2026): el participio
+    'gastado' no matcheaba facturas_compra porque el matching por prefijo
+    (word.startswith('gasto')) no cubre 'gastado' -- 'cuanto hemos gastado
+    este mes' no devolvia NADA pese a ser una pregunta de gasto obvia."""
+    for frase in ["cuánto hemos gastado este mes", "qué gastamos el mes pasado"]:
+        out = normalizar_texto(frase)
+        assert any(c["canonico"] == "facturas_compra" for c in out), frase
+
+
 def test_bono_no_lo_tapa_efectos_pago():
     """Gap real detectado en vivo (1-nov-2026): 'bono' no tenia termino
     canonico (hay 8 tablas bonus_* reales en el esquema), asi que 'cobro el

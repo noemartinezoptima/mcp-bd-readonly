@@ -37,7 +37,8 @@ SINONIMOS = {
         "cliente", "clientes", "razón social",
     ],
     "facturas_compra": [
-        "gasto", "gastos", "compra", "compras", "comprado", "proveedor", "proveedores",
+        "gasto", "gastos", "gastado", "gastados", "gastamos", "gastar",
+        "compra", "compras", "comprado", "proveedor", "proveedores",
         "subcontrata", "subcontratado", "subcontratación",
     ],
     "margen": [
