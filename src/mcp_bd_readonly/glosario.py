@@ -209,6 +209,7 @@ CANONICOS_INFO = {
         "herramienta_mcp": "facturas_compra",
         "otras_tools": {
             "resumen_gastos_por_tipo": "gastos agregados por categoría (tipo_de_gasto) en un rango",
+            "draft_purchase_invoices": "facturas de compra EN BORRADOR (aún no confirmadas/contabilizadas); purchase_invoice_id enlaza con la factura ya confirmada en facturas_compra si se promociona",
         },
         "nota_uso": ("Gastos/compras. Dinero en base_euros/iva_euros/total_euros/total_coste_euros "
                      "(aquí base_euros SÍ existe). coste_directo=1 es coste directo (COGS), 0 es indirecto. "
@@ -217,6 +218,8 @@ CANONICOS_INFO = {
             "Gastos viven en facturas_compra, NO en facturas_venta.",
             "Fecha de pago = fecha_pago (aquí SÍ, distinto a efectos_pago.fecha_pagado).",
             "Hay basura de fechas (ej. 1921): filtrar SIEMPRE por rango.",
+            "'Factura de compra en borrador' NO vive en facturas_compra: facturas_compra son las YA confirmadas. "
+            "Los borradores están en draft_purchase_invoices (status_id propio, aún sin promocionar).",
         ],
     },
     "margen": {
