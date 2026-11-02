@@ -28,6 +28,10 @@ log = logging.getLogger(__name__)
 # a resolve_domain_term para CUALQUIER perfil — con ella en SOLO_TODAS, un
 # perfil de dominio (p. ej. "contabilidad", el que corre hoy en prod) hacía
 # que esa instrucción apuntara a una tool inexistente ("Unknown tool").
+# `reportar_fallo_glosario`/`glosario_pendientes` (2-nov-2026): mencionadas en
+# INSTRUCTIONS como lo que hay que hacer cuando resolve_domain_term falla, para
+# CUALQUIER perfil — mismo motivo que consultar_memoria/find_related_queries:
+# fuera de CORE, un perfil de dominio las dejaría inaccesibles ("Unknown tool").
 CORE = frozenset({
     "list_databases",
     "list_tables",
@@ -38,6 +42,8 @@ CORE = frozenset({
     "recordar_consulta",
     "run_script",
     "find_related_queries",
+    "reportar_fallo_glosario",
+    "glosario_pendientes",
 })
 
 CONTABILIDAD = frozenset({
