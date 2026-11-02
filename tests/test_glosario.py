@@ -100,6 +100,17 @@ def test_gastado_mapea_a_facturas_compra():
         assert any(c["canonico"] == "facturas_compra" for c in out), frase
 
 
+def test_presupuestado_mapea_a_presupuesto():
+    """Mismo bug que 'gastado' (2-nov-2026): el participio 'presupuestado' no
+    matcheaba 'presupuesto' por el mismo limite del matching por prefijo."""
+    for frase in [
+        "qué OTs tienen coste imputado mayor que lo presupuestado al cliente",
+        "cuanto llevamos presupuestado este mes",
+    ]:
+        out = normalizar_texto(frase)
+        assert any(c["canonico"] == "presupuesto" for c in out), frase
+
+
 def test_bono_no_lo_tapa_efectos_pago():
     """Gap real detectado en vivo (1-nov-2026): 'bono' no tenia termino
     canonico (hay 8 tablas bonus_* reales en el esquema), asi que 'cobro el
