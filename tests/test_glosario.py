@@ -80,6 +80,17 @@ def test_pyg_mapea_a_pnl():
     assert any(c["canonico"] == "pnl" for c in out)
 
 
+def test_bono_no_lo_tapa_efectos_pago():
+    """Gap real detectado en vivo (1-nov-2026): 'bono' no tenia termino
+    canonico (hay 8 tablas bonus_* reales en el esquema), asi que 'cobro el
+    bono' recomendaba efectos_pago (cobro de cliente) en vez de bono (comision
+    de empleado) -- dominio totalmente distinto."""
+    out = normalizar_texto("el tecnico cobro el bono de ese trabajo este mes")
+    assert any(c["canonico"] == "bono" for c in out)
+    r = resolver("cuanto bono le toca a este tecnico este mes")
+    assert r["recomendado"] == "bono"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)

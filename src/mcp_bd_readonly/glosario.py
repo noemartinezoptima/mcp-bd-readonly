@@ -59,6 +59,9 @@ SINONIMOS = {
         "tecnico", "tecnicos", "instalador", "instaladores", "profesional",
         "profesionales", "operario", "operarios",
     ],
+    "bono": [
+        "bono", "bonos", "comision", "comisiones", "bonus",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -214,6 +217,26 @@ CANONICOS_INFO = {
             "El teléfono vive en tecnicos.telefono, sin prefijo país salvo que se añada.",
         ],
     },
+    "bono": {
+        "tabla": "bonus_cierres",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "bonus_config": "parámetros de cálculo del bono (clave/valor, tabla key-value)",
+            "bonus_asignaciones_equipo": "quién pertenece a qué equipo/TL/manager y desde cuándo",
+            "bonus_modificadores": "ajustes manuales aplicados al bono de un usuario/mes",
+            "bonus_ajustes_coo": "ajuste del COO fuera del bruto",
+            "bonus_contratos_perdidos": "contratos perdidos que penalizan el bono",
+        },
+        "nota_uso": ("Bono/comisión mensual de un usuario. bonus_cierres.bonus_month (formato 'YYYY-MM') + "
+                     "user_id es la clave; final_amount es el importe ya cerrado, closed_at/closed_by marcan "
+                     "si está cerrado (NULL = aún abierto/editable). Feature nueva (nov-2026): sin tool "
+                     "dedicada en el catálogo todavía, solo run_query directo sobre las tablas bonus_*."),
+        "trampas": [
+            "NO confundir con efectos_pago/cobros: el bono es una comisión de empleado, no un cobro de cliente.",
+            "bonus_cierres.version es versión del cálculo (recalculado), no revisar por fecha sino por version/closed_at.",
+            "bonus_config es key-value genérico (columnas key/value), no una tabla de parámetros tipada.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -230,6 +253,10 @@ _ESPECIFICIDAD = {
     "stock": 5,
     "balance": 5,
     "tecnico": 4,
+    # 6 (por encima de efectos_pago=5): "cobró el bono" debe recomendar bono,
+    # no efectos_pago -- "cobró" ahí es cobro de comisión de empleado, no de
+    # cliente. Bug real detectado en vivo (1-nov-2026).
+    "bono": 6,
 }
 
 
