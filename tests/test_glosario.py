@@ -266,6 +266,17 @@ def test_forma_pago_no_se_confunde_con_efectos_pago():
     assert r["recomendado"] == "forma_pago"
 
 
+def test_facturas_compra_borrador_apunta_a_draft_purchase_invoices():
+    """Gap real detectado en vivo (2-nov-2026): 'facturas de compra en estado
+    borrador' recomendaba facturas_compra (facturas YA confirmadas) sin
+    avisar de que el borrador vive en una tabla aparte
+    (draft_purchase_invoices), con su propio status_id."""
+    out = normalizar_texto("cuántas facturas de compra siguen en estado borrador")
+    info = next(c["info"] for c in out if c["canonico"] == "facturas_compra")
+    assert "draft_purchase_invoices" in info["otras_tools"]
+    assert any("borrador" in t for t in info["trampas"])
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
