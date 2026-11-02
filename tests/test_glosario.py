@@ -214,6 +214,14 @@ def test_kpi_gana_sobre_facturas_venta():
     assert r["recomendado"] == "kpi"
 
 
+def test_periodo_fiscal_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'periodo fiscal' no mapeaba a
+    NADA (coincidencias vacias) pese a existir tablas reales
+    (accounting_fiscal_years, accounting_periods, accounting_period_locks)."""
+    r = resolver("cuál es el periodo fiscal que está abierto ahora mismo en contabilidad")
+    assert r["recomendado"] == "periodo_fiscal"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
