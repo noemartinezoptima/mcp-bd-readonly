@@ -50,6 +50,7 @@ chown root:mcp "$ENVDIR/mcp.env"
 chmod 640 "$ENVDIR/mcp.env"
 
 install -m 644 "$DST/deploy/systemd/mcp-optima-bd.service" "$UNIT"
+install -m 644 "$DST/deploy/logrotate/mcp-optima-bd" /etc/logrotate.d/mcp-optima-bd
 chown -R mcp:mcp "$DST" "$DATA"
 
 systemctl daemon-reload

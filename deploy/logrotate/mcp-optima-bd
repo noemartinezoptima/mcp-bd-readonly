@@ -1,0 +1,22 @@
+# audit.jsonl y slow_queries.jsonl crecen sin límite (una línea por tool
+# call / query lenta, con el SQL íntegro). Sin rotación, /var/lib/mcp-optima-bd
+# puede llenar el disco del host silenciosamente.
+#
+# 0600 mcp:mcp igual que los ficheros originales (secure_log.py): el SQL
+# puede llevar literales de negocio (NIFs, importes, nombres).
+#
+# Sin copytruncate: open_append_private() (secure_log.py) abre el fichero por
+# PATH en cada escritura, no mantiene un file descriptor largo vivo — así que
+# una rotación normal (rename + create) es segura y evita la ventana de pérdida
+# de líneas que copytruncate tiene entre el truncate y que el proceso reabra.
+/var/lib/mcp-optima-bd/audit.jsonl
+/var/lib/mcp-optima-bd/slow_queries.jsonl
+{
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 600 mcp mcp
+}

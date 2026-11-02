@@ -134,3 +134,25 @@ def test_error_message_names_the_reason():
         enforce_read_only("WITH c AS (SELECT 1) DELETE FROM t")
     with pytest.raises(ReadOnlyViolation, match="FOR UPDATE"):
         enforce_read_only("SELECT * FROM t FOR UPDATE")
+
+
+def test_empty_or_comment_only_query_rejected():
+    for bad in ["-- solo un comentario", "/* solo comentario */", ";", "   "]:
+        with pytest.raises(ReadOnlyViolation):
+            enforce_read_only(bad)
+
+
+@pytest.mark.parametrize("bad", [
+    # Falso positivo CONOCIDO y aceptado (fail-safe, no es un bypass): un
+    # identificador entre backticks con el mismo texto que un verbo vetado se
+    # rechaza igual, porque _strip_literals solo quita comillas simples/dobles,
+    # no backticks. Verificado contra schema_snapshot.json (1-nov-2026): ninguna
+    # tabla/columna real de `back` colisiona con FORBIDDEN_WORDS, así que no es
+    # un problema práctico hoy. Si alguna vez aparece una columna así, requerirá
+    # tratar los backticks como _strip_literals trata las comillas.
+    "SELECT 1 AS `delete`",
+    "SELECT `set` FROM t",
+])
+def test_known_false_positive_backtick_identifier_matches_forbidden_word(bad):
+    with pytest.raises(ReadOnlyViolation):
+        enforce_read_only(bad)
