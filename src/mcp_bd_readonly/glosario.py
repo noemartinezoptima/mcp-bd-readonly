@@ -118,6 +118,10 @@ SINONIMOS = {
         "forma de pago", "formas de pago", "forma de cobro", "formas de cobro",
         "metodo de pago", "metodos de pago", "iban",
     ],
+    "embargo": [
+        "embargo", "embargos", "embargado", "embargados", "retencion judicial",
+        "retenciones judiciales", "retencion salarial", "retenciones salariales",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -176,6 +180,9 @@ CANONICOS_INFO = {
     "ots": {
         "tabla": "ots",
         "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "costes_ots": "coste real imputado a UNA OT (factura_compra_id, margen, total, imputado)",
+        },
         "nota_uso": "OT / partes de trabajo. Unica tabla de la BD con base_euros real.",
         "trampas": [
             "base_euros SI existe aqui (unica excepcion; fuera de ots es inexistente).",
@@ -523,6 +530,22 @@ CANONICOS_INFO = {
             "NO confundir con efectos_pago: esta tabla es la configuración (IBAN/forma), no el importe cobrado/pagado.",
         ],
     },
+    "embargo": {
+        "tabla": "technician_seizures",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "technician_seizure_documents": "documentos adjuntos de un embargo (vía archivo_id)",
+            "seizure_reasons": "catálogo de motivos de embargo (id/name)",
+        },
+        "nota_uso": ("Embargo/retención judicial de un técnico. type='seizure' (embargo) o 'release' (levantamiento); "
+                     "released_seizure_id enlaza el levantamiento con el embargo que libera. "
+                     "resulting_state/previous_state son el estado del técnico antes/después del movimiento."),
+        "trampas": [
+            "Un técnico 'embargado actualmente' = su embargo más reciente tiene type='seizure' sin un 'release' "
+            "posterior que lo enlace vía released_seizure_id.",
+            "NO confundir con 'retención' fiscal/IRPF (tipo_impositivo/facturas): aquí es retención JUDICIAL de nómina.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -590,6 +613,7 @@ _ESPECIFICIDAD = {
     # test de cobertura (2-nov-2026): informaciones_pagos/informaciones_cobros
     # no tenian ningun termino, pese a ser tablas de negocio reales.
     "forma_pago": 6,
+    "embargo": 5,
 }
 
 

@@ -277,6 +277,23 @@ def test_facturas_compra_borrador_apunta_a_draft_purchase_invoices():
     assert any("borrador" in t for t in info["trampas"])
 
 
+def test_embargo_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'embargo'/'retenciones
+    judiciales' no mapeaba a nada pese a existir tabla real
+    technician_seizures, con un dominio totalmente distinto de la
+    'retencion' fiscal (tipo_impositivo)."""
+    r = resolver("cuántos técnicos están embargados o con retenciones judiciales activas")
+    assert r["recomendado"] == "embargo"
+
+
+def test_ots_tiene_costes_ots_como_otras_tools():
+    """Gap real detectado en vivo (2-nov-2026): 'cuánto cuesta de media una
+    OT' no apuntaba a la tabla real costes_ots (coste imputado por OT)."""
+    out = normalizar_texto("cuánto nos cuesta de media una OT según el tipo de servicio")
+    info = next(c["info"] for c in out if c["canonico"] == "ots")
+    assert "costes_ots" in info["otras_tools"]
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
