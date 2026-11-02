@@ -222,6 +222,31 @@ def test_periodo_fiscal_tiene_termino_canonico():
     assert r["recomendado"] == "periodo_fiscal"
 
 
+def test_asiento_contable_tiene_termino_canonico():
+    """Gap real detectado en vivo (2-nov-2026): 'asiento contable' no mapeaba
+    a NADA pese a existir tabla real accounting_entries."""
+    r = resolver("quién firmó el último asiento contable de este mes")
+    assert r["recomendado"] == "asiento_contable"
+
+
+def test_tipo_impositivo_no_se_queda_en_stock_ni_resumen_iva():
+    """Gap real detectado en vivo (2-nov-2026): 'tipo de iva' de un articulo
+    recomendaba 'stock' (por 'articulo'), sin apuntar al modulo real de tipos
+    impositivos (tax_rates/tax_categories), distinto de resumen_iva (IVA YA
+    liquidado de facturas emitidas)."""
+    r = resolver("qué tipo de iva aplica este artículo según la normativa")
+    assert r["recomendado"] == "tipo_impositivo"
+
+
+def test_proveedor_gana_sobre_facturas_venta():
+    """Falso positivo real detectado en vivo (2-nov-2026): 'proveedor' es un
+    sinonimo exclusivo de facturas_compra, pero la palabra generica
+    'facturacion' (presente en ambos canonicos) hacia ganar a facturas_venta
+    -- al reves del sentido de la pregunta (es sobre COMPRAS, no ventas)."""
+    r = resolver("quién es el proveedor con mayor volumen de facturación este año")
+    assert r["recomendado"] == "facturas_compra"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
