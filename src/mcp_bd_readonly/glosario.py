@@ -87,6 +87,15 @@ SINONIMOS = {
     "tipo_cambio": [
         "tipo de cambio", "tipos de cambio", "divisa", "divisas",
     ],
+    # OJO: NO se incluye "iteracion"/"iteraciones" aqui a proposito. Pese al
+    # nombre parecido (iteration=sprint en ingles), la tabla real
+    # "iteraciones" es sobre recurrencia de generacion de OTs preventivas
+    # desde un contrato (contrato_id/periodicidad/dias_semana), un dominio
+    # totalmente distinto de los sprints de desarrollo. Ver trampa en
+    # CANONICOS_INFO["sprint"]. Gap real detectado en vivo (2-nov-2026).
+    "sprint": [
+        "sprint", "sprints",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -373,6 +382,19 @@ CANONICOS_INFO = {
             "exchange_rates.rate es la versión nueva con FKs (base_currency_id/quote_currency_id) y rate_date.",
         ],
     },
+    "sprint": {
+        "tabla": "sprints",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "ticket": "tickets.sprint_id enlaza cada tarea a su sprint",
+        },
+        "nota_uso": "Sprint de desarrollo: nombre, fecha_inicio, fecha_fin, activo. Las tareas lo referencian vía tickets.sprint_id.",
+        "trampas": [
+            "NO usar la tabla 'iteraciones' para esto: pese al nombre parecido (iteration=sprint en inglés), esa "
+            "tabla es sobre recurrencia de generación de OTs preventivas desde un contrato "
+            "(contrato_id/periodicidad/dias_semana/dias_mes), un dominio totalmente distinto de los sprints de desarrollo.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -415,6 +437,7 @@ _ESPECIFICIDAD = {
     # match generico de "facturas"/"proveedores" en la misma frase. Gap real
     # detectado en vivo, repetido en dos frases distintas (2-nov-2026).
     "tipo_cambio": 7,
+    "sprint": 4,
 }
 
 

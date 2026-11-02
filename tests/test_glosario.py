@@ -168,6 +168,19 @@ def test_tipo_de_cambio_gana_sobre_facturas():
         assert r["recomendado"] == "tipo_cambio", frase
 
 
+def test_sprint_mapea_pero_iteracion_sola_no():
+    """Gap real detectado en vivo (2-nov-2026): 'sprint' no mapeaba a nada
+    pese a existir tabla real 'sprints' (vinculada via tickets.sprint_id).
+    OJO: 'iteracion'/'iteraciones' NO se añaden como sinonimos de sprint a
+    proposito -- la tabla real 'iteraciones' es sobre recurrencia de OTs
+    preventivas desde un contrato, un dominio totalmente distinto pese al
+    nombre parecido (iteration=sprint en ingles)."""
+    r = resolver("a qué sprint pertenece esta tarea")
+    assert r["recomendado"] == "sprint"
+    out = normalizar_texto("cada cuanto se repite esta iteracion de OTs preventivas del contrato")
+    assert not any(c["canonico"] == "sprint" for c in out)
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
