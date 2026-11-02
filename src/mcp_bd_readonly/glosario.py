@@ -84,6 +84,9 @@ SINONIMOS = {
     "centro_coste": [
         "centro de coste", "centros de coste", "centro de costes", "centros de costes",
     ],
+    "tipo_cambio": [
+        "tipo de cambio", "tipos de cambio", "divisa", "divisas",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -352,6 +355,24 @@ CANONICOS_INFO = {
             "'centro'/'centros' a secas significan tienda (establecimiento); solo la frase completa 'centro(s) de coste(s)' es esta tabla.",
         ],
     },
+    "tipo_cambio": {
+        "tabla": "exchange_rates (nuevo) / conversion_monedas (legacy)",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "currencies": "catálogo de divisas NUEVO (ISO 4217: code/numeric_code/symbol)",
+            "monedas": "catálogo de divisas LEGACY (texto libre: moneda/codigo_moneda/simbolo)",
+        },
+        "nota_uso": ("Hay DOS generaciones de tipo de cambio conviviendo: legacy (monedas + conversion_monedas, "
+                     "con nombres de moneda en texto libre) y nueva (currencies + exchange_rates, ISO 4217 con "
+                     "base_currency_id/quote_currency_id + rate_date). Verificar con describe_table a cuál de las "
+                     "dos apunta moneda_id en la tabla de negocio concreta ANTES de hacer el JOIN: no asumir."),
+        "trampas": [
+            "NO asumir una sola tabla: moneda_id en tablas de negocio (presupuestos, tarifas, facturas) puede "
+            "apuntar a monedas O a currencies según cuándo se creó el dato.",
+            "conversion_monedas.tasa_conversion es legacy (moneda_inicial/moneda_final en texto); "
+            "exchange_rates.rate es la versión nueva con FKs (base_currency_id/quote_currency_id) y rate_date.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -389,6 +410,11 @@ _ESPECIFICIDAD = {
     # como coincidencia secundaria (igual que "activo" junto a activo_fijo).
     # Falso positivo real, detectado en vivo (2-nov-2026).
     "centro_coste": 8,
+    # 7 (por encima de facturas_venta=6/facturas_compra=5): "qué tipo de
+    # cambio..." es una pregunta explicita sobre divisas, debe ganar sobre el
+    # match generico de "facturas"/"proveedores" en la misma frase. Gap real
+    # detectado en vivo, repetido en dos frases distintas (2-nov-2026).
+    "tipo_cambio": 7,
 }
 
 

@@ -154,6 +154,20 @@ def test_centro_de_coste_no_lo_tapa_establecimiento():
     )["coincidencias"])
 
 
+def test_tipo_de_cambio_gana_sobre_facturas():
+    """Gap real detectado en vivo, repetido en dos frases distintas
+    (2-nov-2026): 'tipo de cambio' no mapeaba a nada especifico, se quedaba en
+    facturas_venta/facturas_compra genericas sin avisar de que hay DOS
+    generaciones de tablas de divisa conviviendo (monedas/conversion_monedas
+    legacy vs currencies/exchange_rates nuevas)."""
+    for frase in [
+        "qué tipo de cambio aplicamos a los proveedores extranjeros este mes",
+        "a qué tipo de cambio se convirtieron las facturas en dólares este mes",
+    ]:
+        r = resolver(frase)
+        assert r["recomendado"] == "tipo_cambio", frase
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
