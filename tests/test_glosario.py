@@ -288,6 +288,15 @@ def test_facturas_compra_borrador_apunta_a_draft_purchase_invoices():
     assert any("borrador" in t for t in info["trampas"])
 
 
+def test_facturas_venta_tiene_invoice_zip_exports_como_otras_tools():
+    """Gap real detectado en vivo (2-nov-2026): 'lote de facturas exportado en
+    zip' no apuntaba a la tabla real invoice_zip_exports (seguimiento del
+    lote, no las facturas en sí)."""
+    out = normalizar_texto("qué lote de facturas se exportó en zip la última vez para el gestor")
+    info = next(c["info"] for c in out if c["canonico"] == "facturas_venta")
+    assert "invoice_zip_exports" in info["otras_tools"]
+
+
 def test_cuenta_contable_mapea_a_balance():
     """Gap real detectado en vivo (2-nov-2026): 'cuentas contables' no
     mapeaba a NADA pese a que balance ya usa accounting_accounts como tabla
