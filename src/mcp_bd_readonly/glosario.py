@@ -103,6 +103,10 @@ SINONIMOS = {
     "kpi": [
         "kpi", "kpis",
     ],
+    "periodo_fiscal": [
+        "periodo fiscal", "periodos fiscales", "ejercicio fiscal", "ejercicios fiscales",
+        "cierre contable", "cierres contables",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -437,6 +441,21 @@ CANONICOS_INFO = {
             "equipo_id es varchar, no FK numérica a una tabla 'equipos'.",
         ],
     },
+    "periodo_fiscal": {
+        "tabla": "accounting_fiscal_years + accounting_periods",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "accounting_period_locks": "bloqueos de periodo (cierre/congelado), con lock_type y fechas de bloqueo/liberación",
+        },
+        "nota_uso": ("accounting_fiscal_years = ejercicio anual completo (year/start_date/end_date/status); "
+                     "accounting_periods = sub-periodos dentro de un ejercicio (period_number/name/status), con FK "
+                     "accounting_fiscal_year_id. 'Abierto' = status='open' en la tabla correspondiente."),
+        "trampas": [
+            "Un periodo puede estar status='open' en accounting_periods pero bloqueado en accounting_period_locks "
+            "(lock_type/status='active') -- comprobar ambas tablas antes de asumir que se puede contabilizar.",
+            "empresa_id es varchar, no FK numérica a una tabla 'empresas'.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -485,6 +504,7 @@ _ESPECIFICIDAD = {
     # sobre el match generico de "facturacion" -- la pregunta es sobre el KPI,
     # no sobre la factura en si. Gap real detectado en vivo (2-nov-2026).
     "kpi": 7,
+    "periodo_fiscal": 4,
 }
 
 
