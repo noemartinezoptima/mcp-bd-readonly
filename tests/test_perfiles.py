@@ -33,15 +33,16 @@ def _nombres(tmp_path, perfil=""):
 
 
 def test_sin_perfil_registra_todas_las_tools(tmp_path):
-    # 38 del servidor remoto (incluye run_script) + setup_ssh, solo en local.
-    assert len(_nombres(tmp_path, "")) == 39
-    assert len(_nombres(tmp_path, "todas")) == 39
+    # 40 del servidor remoto (incluye run_script + reportar_fallo_glosario +
+    # glosario_pendientes) + setup_ssh, solo en local.
+    assert len(_nombres(tmp_path, "")) == 41
+    assert len(_nombres(tmp_path, "todas")) == 41
 
 
 def test_perfil_contabilidad_deja_24_tools(tmp_path):
     nombres = _nombres(tmp_path, "contabilidad")
     assert nombres == PERFILES["contabilidad"]
-    assert len(nombres) == 24
+    assert len(nombres) == 26
     assert "run_query" in nombres and "balance" in nombres
     assert "stock_actual" not in nombres
     # El entrenamiento no puede quedar inaccesible con un perfil de dominio:
@@ -53,16 +54,22 @@ def test_perfil_contabilidad_deja_24_tools(tmp_path):
     # para CUALQUIER perfil; en SOLO_TODAS apuntaba a "Unknown tool" en
     # cuanto el perfil activo no fuera "todas" (bug real, 1-nov-2026).
     assert "find_related_queries" in nombres
+    # Bucle de feedback del glosario (2-nov-2026): mismo motivo que
+    # consultar_memoria/find_related_queries, debe estar en todos los perfiles.
+    assert "reportar_fallo_glosario" in nombres
+    assert "glosario_pendientes" in nombres
 
 
 def test_perfiles_de_dominio_mas_pequenos(tmp_path):
-    assert len(_nombres(tmp_path, "operaciones")) == 14
-    assert len(_nombres(tmp_path, "excel")) == 13
+    assert len(_nombres(tmp_path, "operaciones")) == 16
+    assert len(_nombres(tmp_path, "excel")) == 15
     for perfil in ("operaciones", "excel"):
         assert "consultar_memoria" in _nombres(tmp_path, perfil)
         assert "recordar_consulta" in _nombres(tmp_path, perfil)
         assert "run_script" in _nombres(tmp_path, perfil)
         assert "find_related_queries" in _nombres(tmp_path, perfil)
+        assert "reportar_fallo_glosario" in _nombres(tmp_path, perfil)
+        assert "glosario_pendientes" in _nombres(tmp_path, perfil)
 
 
 def test_core_presente_en_todos_los_perfiles():
@@ -111,7 +118,7 @@ def test_perfil_desconocido_sirve_las_38_y_lo_dice_en_instructions(tmp_path):
     """Tampoco puede pasar desapercibido: se sirven las de siempre (nada
     desaparece en silencio) y el aviso viaja en `instructions`, que es lo que
     lee el cliente en cada `initialize`."""
-    assert len(_nombres(tmp_path, "contabilid")) == 39
+    assert len(_nombres(tmp_path, "contabilid")) == 41
     mcp = build_mcp(_cfg(tmp_path, "contabilid"), executor=object(), audit=None,
                     remote=False)
     texto = mcp.instructions or ""

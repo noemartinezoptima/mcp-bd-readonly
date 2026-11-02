@@ -13,6 +13,7 @@ from mcp_bd_readonly.tools_core import build_tools, build_glosario_tools
 from mcp_bd_readonly.esquema_snapshot import build_schema_tools
 from mcp_bd_readonly.catalogo_queries import build_queries_tools
 from mcp_bd_readonly.memoria import build_memoria_tools
+from mcp_bd_readonly.glosario_feedback import build_glosario_feedback_tools
 from mcp_bd_readonly.prompts import build_prompts
 from mcp_bd_readonly.perfiles import aviso_perfil, herramientas_activas
 from mcp_bd_readonly.tools_finanzas import build_finanzas_tools
@@ -45,6 +46,10 @@ INSTRUCTIONS = (
     "polimórfico (12=venta, 11=compra) y no tiene cliente_id, su fecha es "
     "fecha_pagado; no existe cobros_remesas. Si resolve_domain_term no encaja con "
     "tu pregunta, prueba find_related_queries: catálogo más fino por tool concreta. "
+    "Si resolve_domain_term devuelve vacío o un canónico que resulta ser el "
+    "equivocado, llama a reportar_fallo_glosario con la frase y lo que esperabas: "
+    "queda registrado para que una sesión de mantenimiento lo corrija (no se "
+    "corrige solo). glosario_pendientes resume lo ya reportado. "
     "Guiones completos en prompts/list: sql_seguro, iva_trimestral, riesgo_cobros, "
     "ot_abiertas."
 )
@@ -132,6 +137,8 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     for fn in build_queries_tools(audit):
         reg(fn)
     for fn in build_memoria_tools(audit, cfg.data_dir):
+        reg(fn)
+    for fn in build_glosario_feedback_tools(audit, cfg.data_dir):
         reg(fn)
     # setup_ssh escribe en el sistema de ficheros y en ~/.ssh/config: en el
     # servidor remoto lo usa el operador por SSH, no un cliente MCP.
