@@ -96,6 +96,12 @@ SINONIMOS = {
     "sprint": [
         "sprint", "sprints",
     ],
+    "incidencia": [
+        "incidencia", "incidencias", "queja", "quejas",
+    ],
+    "kpi": [
+        "kpi", "kpis",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -137,6 +143,9 @@ CANONICOS_INFO = {
             "Polimórfico: modelo_id=12 → FacturaVenta, 11 → FacturaCompra; relacion_id apunta al id de esa tabla, NO es FK.",
             "NO tiene cliente_id directo: pasar por relacion_id → facturas_venta.cliente_id.",
             "Fecha de pago = fecha_pagado (no fecha_pago); NUNCA usar cobros_remesas (error 1146).",
+            "'documentos de pago' (ficheros/adjuntos pendientes de subir) NO vive aquí: documentos_de_pago es solo "
+            "un catálogo de tipos (id/nombre); los ficheros reales están en 'archivos' (polimórfico, "
+            "modelo_id/relacion_id, igual patrón que esta tabla).",
         ],
     },
     "resumen_iva": {
@@ -395,6 +404,38 @@ CANONICOS_INFO = {
             "(contrato_id/periodicidad/dias_semana/dias_mes), un dominio totalmente distinto de los sprints de desarrollo.",
         ],
     },
+    "incidencia": {
+        "tabla": "incidencias",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "clientes_incidencias": "quejas/incidencias de un CLIENTE (vía reunion_id + respuesta)",
+            "tecnicos_incidencias": "disputas de FACTURACIÓN con un técnico (num_facturas_reclamadas, negociacion_exitosa)",
+            "work_order_price_reduction_logs": "penalización económica (reducción de precio) aplicada a una OT concreta",
+        },
+        "nota_uso": ("'incidencias' es genérica y polimórfica: origen_modelo_id/origen_relacion_id y "
+                     "relacion_modelo_id/relacion_relacion_id apuntan a distintas entidades según el caso, no son "
+                     "FK fijas. Para incidencias ESPECÍFICAS de cliente o de técnico, usar las tablas dedicadas de otras_tools."),
+        "trampas": [
+            "NO confundir con 'tickets' (sistema interno de desarrollo/soporte, dominio distinto).",
+            "origen_modelo_id/relacion_modelo_id son polimórficos: comprobar el valor antes de hacer JOIN, igual que efectos_pago.modelo_id.",
+            "La penalización económica real a un técnico vive en work_order_price_reduction_logs (original_price/final_price/difference), NO en incidencias.",
+        ],
+    },
+    "kpi": {
+        "tabla": "kpis_diarios",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "kpi_configuraciones": "baremos/puntos por acción usados para calcular los KPI (valor_minimo/valor_maximo/porcentaje)",
+        },
+        "nota_uso": ("KPI diario por usuario/equipo: kpis_diarios tiene un par de columnas _valor/_puntos por "
+                     "métrica (eur_facturados, ots_cerradas, tiempo_resolucion_incidencias, etc.), no una tabla "
+                     "genérica de métricas."),
+        "trampas": [
+            "Cada métrica tiene DOS columnas (valor crudo + puntos ya baremados): no confundir eur_facturados_valor "
+            "(el dato real) con eur_facturados_puntos (la puntuación gamificada).",
+            "equipo_id es varchar, no FK numérica a una tabla 'equipos'.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -438,6 +479,11 @@ _ESPECIFICIDAD = {
     # detectado en vivo, repetido en dos frases distintas (2-nov-2026).
     "tipo_cambio": 7,
     "sprint": 4,
+    "incidencia": 5,
+    # 7 (por encima de facturas_venta=6): "kpi de facturacion" debe ganar
+    # sobre el match generico de "facturacion" -- la pregunta es sobre el KPI,
+    # no sobre la factura en si. Gap real detectado en vivo (2-nov-2026).
+    "kpi": 7,
 }
 
 

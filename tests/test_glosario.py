@@ -181,6 +181,29 @@ def test_sprint_mapea_pero_iteracion_sola_no():
     assert not any(c["canonico"] == "sprint" for c in out)
 
 
+def test_incidencia_tiene_termino_canonico():
+    """Gap real detectado en vivo, repetido en dos frases distintas
+    (2-nov-2026): 'incidencia'/'incidencias' no mapeaba a nada especifico,
+    solo a 'tecnico'/'cliente' genericos. Tablas reales: incidencias
+    (generica, polimorfica), clientes_incidencias, tecnicos_incidencias y
+    work_order_price_reduction_logs (penalizacion economica)."""
+    for frase in [
+        "qué comentarios ha dejado el técnico al cerrar esta incidencia",
+        "cuánto llevamos acumulado este año en incidencias con penalización económica al técnico",
+    ]:
+        r = resolver(frase)
+        assert r["recomendado"] == "incidencia", frase
+
+
+def test_kpi_gana_sobre_facturas_venta():
+    """Gap real detectado en vivo (2-nov-2026): 'kpi' no mapeaba a nada
+    especifico, se quedaba en facturas_venta por la palabra 'facturacion' en
+    la misma frase. Tabla real: kpis_diarios (columnas _valor/_puntos por
+    metrica)."""
+    r = resolver("cuál es el kpi de facturación diaria de este equipo")
+    assert r["recomendado"] == "kpi"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
