@@ -107,6 +107,13 @@ SINONIMOS = {
         "periodo fiscal", "periodos fiscales", "ejercicio fiscal", "ejercicios fiscales",
         "cierre contable", "cierres contables",
     ],
+    "asiento_contable": [
+        "asiento contable", "asientos contables", "asiento", "asientos",
+    ],
+    "tipo_impositivo": [
+        "tipo de iva", "tipos de iva", "tipo impositivo", "tipos impositivos",
+        "categoria fiscal", "categoria impositiva",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -456,6 +463,36 @@ CANONICOS_INFO = {
             "empresa_id es varchar, no FK numérica a una tabla 'empresas'.",
         ],
     },
+    "asiento_contable": {
+        "tabla": "accounting_entries",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "accounting_entry_lines": "líneas del asiento (debe/haber por cuenta), incluye tax_rate_id/tax_amount",
+        },
+        "nota_uso": ("Asiento contable (cabecera). posted_by/posted_at marca quién y cuándo lo contabilizó "
+                     "(status='posted'); status='draft' aún no está contabilizado. reversal_entry_id enlaza con "
+                     "el asiento de reversión si se anuló."),
+        "trampas": [
+            "'Quién firmó/contabilizó' = posted_by, NO created_by (quién lo creó puede ser distinto de quién lo contabilizó).",
+            "voided_at/voided_by es anulación directa, distinto de un asiento de reversión (reversal_entry_id).",
+        ],
+    },
+    "tipo_impositivo": {
+        "tabla": "tax_rates",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "tax_categories": "categoría fiscal a la que pertenece un tipo (code/name, catálogo superior)",
+        },
+        "nota_uso": ("Tipo impositivo (tasa de IVA/retención) aplicable a un producto o operación: tax_rates.rate + "
+                     "tax_type (vat/withholding/...), vigencia valid_from/valid_to. DISTINTO de 'resumen_iva' "
+                     "(IVA YA liquidado/agregado de facturas_venta emitidas)."),
+        "trampas": [
+            "NO confundir con 'resumen_iva': esa tool es el IVA agregado de facturas ya emitidas, no el tipo "
+            "impositivo vigente de un producto u operación.",
+            "Un mismo tax_category_id puede tener varios tax_rates vigentes en fechas distintas (valid_from/valid_to): "
+            "filtrar por fecha, no asumir uno solo.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -466,7 +503,13 @@ _ESPECIFICIDAD = {
     "ots": 3,
     "responsable": 2,
     "cliente": 1,
-    "facturas_compra": 5,
+    # 7 (por encima de facturas_venta=6): "proveedor" es un sinonimo exclusivo
+    # de facturas_compra, una señal de dominio mas fuerte que la palabra
+    # generica "facturacion" (que tambien aparece en facturas_venta). Sin
+    # esto, "proveedor con mayor volumen de facturacion" recomendaba
+    # facturas_venta -- al reves del sentido de la pregunta (compras, no
+    # ventas). Falso positivo real, detectado en vivo (2-nov-2026).
+    "facturas_compra": 7,
     "margen": 4,
     "pnl": 4,
     "stock": 5,
@@ -505,6 +548,12 @@ _ESPECIFICIDAD = {
     # no sobre la factura en si. Gap real detectado en vivo (2-nov-2026).
     "kpi": 7,
     "periodo_fiscal": 4,
+    "asiento_contable": 4,
+    # 6 (por encima de stock=5/resumen_iva=4): "tipo de iva" de un articulo es
+    # sobre el tipo impositivo vigente, no sobre el articulo en si (stock) ni
+    # sobre el IVA YA liquidado y agregado (resumen_iva). Gap real detectado
+    # en vivo (2-nov-2026).
+    "tipo_impositivo": 6,
 }
 
 
