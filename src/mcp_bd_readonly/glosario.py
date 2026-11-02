@@ -114,6 +114,10 @@ SINONIMOS = {
         "tipo de iva", "tipos de iva", "tipo impositivo", "tipos impositivos",
         "categoria fiscal", "categoria impositiva",
     ],
+    "forma_pago": [
+        "forma de pago", "formas de pago", "forma de cobro", "formas de cobro",
+        "metodo de pago", "metodos de pago", "iban",
+    ],
 }
 
 CANONICOS_INFO = {
@@ -501,6 +505,21 @@ CANONICOS_INFO = {
             "filtrar por fecha, no asumir uno solo.",
         ],
     },
+    "forma_pago": {
+        "tabla": "informaciones_pagos (proveedor) / informaciones_cobros (cliente)",
+        "herramienta_mcp": "run_query",
+        "otras_tools": {
+            "informaciones_pagos_tipos": "catálogo de tipos de forma de pago (id/nombre)",
+        },
+        "nota_uso": ("Configuración del MÉTODO de pago/cobro (IBAN, dia_pago, forma_pago_id) de un cliente o "
+                     "proveedor; polimórfica (modelo_id/relacion_id) igual que efectos_pago. DISTINTA de "
+                     "'efectos_pago' (histórico de importes YA cobrados/pagados, no la configuración de cómo se cobra/paga)."),
+        "trampas": [
+            "informaciones_pagos = config de PAGO a proveedores; informaciones_cobros = config de COBRO a "
+            "clientes -- tablas DISTINTAS pese al nombre casi idéntico.",
+            "NO confundir con efectos_pago: esta tabla es la configuración (IBAN/forma), no el importe cobrado/pagado.",
+        ],
+    },
 }
 
 _ESPECIFICIDAD = {
@@ -562,6 +581,12 @@ _ESPECIFICIDAD = {
     # sobre el IVA YA liquidado y agregado (resumen_iva). Gap real detectado
     # en vivo (2-nov-2026).
     "tipo_impositivo": 6,
+    # 6 (por encima de efectos_pago=5): "forma de pago"/"IBAN" es sobre la
+    # CONFIGURACIÓN de cómo se cobra/paga, no sobre el histórico de importes
+    # ya cobrados/pagados (efectos_pago). Gap real detectado al construir el
+    # test de cobertura (2-nov-2026): informaciones_pagos/informaciones_cobros
+    # no tenian ningun termino, pese a ser tablas de negocio reales.
+    "forma_pago": 6,
 }
 
 

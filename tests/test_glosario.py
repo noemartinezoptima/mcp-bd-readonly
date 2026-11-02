@@ -257,6 +257,15 @@ def test_proveedor_gana_sobre_facturas_venta():
     assert r["recomendado"] == "facturas_compra"
 
 
+def test_forma_pago_no_se_confunde_con_efectos_pago():
+    """Gap real detectado al construir el test de cobertura (2-nov-2026):
+    informaciones_pagos/informaciones_cobros (config de IBAN/forma de pago)
+    no tenian ningun termino, pese a ser tablas de negocio reales distintas
+    de efectos_pago (que es el historico de importes YA cobrados/pagados)."""
+    r = resolver("qué forma de cobro tiene configurada este cliente")
+    assert r["recomendado"] == "forma_pago"
+
+
 def test_cliente_a_razon_social():
     out = normalizar_texto("cuánto facturamos al cliente kiko")
     assert any(c["canonico"] == "cliente" for c in out)
