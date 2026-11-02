@@ -150,6 +150,7 @@ CANONICOS_INFO = {
             "cuadre_factura": "comprobar que suma de líneas == total de cabecera de UNA factura",
             "excepciones": "facturas sobre un umbral, clasificadas por materialidad",
             "informe_financiero": "informe Markdown+CSV de un periodo (para compartir/exportar)",
+            "invoice_zip_exports": "seguimiento de un lote de facturas exportado en ZIP (status/progreso/expiración), no las facturas en sí",
         },
         "nota_uso": ("Facturación/ventas. Dinero en total_euros e iva_euros; base = total_euros − iva_euros. "
                      "Filtrar deleted_at IS NULL."),
