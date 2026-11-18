@@ -26,6 +26,34 @@ class Config:
     connect_timeout_s: int = 5
     read_timeout_s: int = 20
 
+    # --- ciclo de vida de conexiones (multiusuario) ---------------------------
+    # Tope de sesiones VIVAS **por ejecutor** cuando se usa el pool
+    # multiusuario. OJO: con réplica configurada hay dos ejecutores (primario y
+    # réplica, ver router.build_router), así que el total del proceso es 2×.
+    # 0 => no se activa (se usa `pool_size`).
+    pool_max: int = 0
+    # Cierre por inactividad en segundos. 0 => nunca expira (pool clásico).
+    # Es la pieza que impide que el MCP se quede con el cupo del usuario MySQL
+    # (error 1203 para el resto de usuarios) mientras nadie consulta.
+    pool_idle_s: float = 0.0
+    # Cupo de conexiones por API key (0 => sin cupo por clave). Evita que una
+    # persona con queries lentas deje sin conexión a las demás.
+    pool_max_per_key: int = 0
+    # Espera máxima por un hueco del pool antes de fallar (s).
+    pool_wait_s: float = 10.0
+    # Tope de filas materializadas por query. En HTTP conviene bajarlo: 50.000
+    # filas anchas pueden agotar MemoryMax=512M del unit y tumbar el servicio
+    # para todos los usuarios.
+    max_rows: int = 50_000
+    # run_script ejecuta Python enviado por el cliente. Tri-estado: None =>
+    # habilitado en stdio y DESHABILITADO en HTTP (fail-closed), que es el modo
+    # donde el código viene de la red. `MCP_ENABLE_RUN_SCRIPT=1` lo reactiva.
+    enable_run_script: bool | None = None
+    # Fallos de autenticación por IP y minuto antes de responder 429: sin esto
+    # el 401 se comprobaba antes del rate limit y se podía martillear el
+    # endpoint (lookup SQLite + sha256 por petición) sin límite.
+    auth_fail_per_min: int = 30
+
     # --- réplica de lectura -----------------------------------------------------
     replica_host: str = ""
     replica_port: int = 0  # 0 => mismo puerto que el primario
@@ -87,6 +115,13 @@ def load_config(env_file: Path | None = None) -> Config:
             return default
         return raw in ("1", "true", "yes", "si", "sí", "on")
 
+    def as_tri_bool(key: str) -> bool | None:
+        """None si la variable no está definida (el default depende del modo)."""
+        raw = get(key, "").strip().lower()
+        if raw == "":
+            return None
+        return raw in ("1", "true", "yes", "si", "sí", "on")
+
     return Config(
         host=get("MYSQL_HOST", "127.0.0.1"),
         port=as_int("MYSQL_PORT", 13306),
@@ -101,6 +136,13 @@ def load_config(env_file: Path | None = None) -> Config:
         pool_size=as_int("MYSQL_POOL_SIZE", 0),
         connect_timeout_s=as_int("MYSQL_CONNECT_TIMEOUT_S", 5),
         read_timeout_s=as_int("MYSQL_READ_TIMEOUT_S", 20),
+        pool_max=as_int("MYSQL_POOL_MAX", 0),
+        pool_idle_s=as_float("MYSQL_POOL_IDLE_S", 0.0),
+        pool_max_per_key=as_int("MYSQL_POOL_MAX_PER_KEY", 0),
+        pool_wait_s=as_float("MYSQL_POOL_WAIT_S", 10.0),
+        max_rows=as_int("MYSQL_MAX_ROWS", 50_000),
+        enable_run_script=as_tri_bool("MCP_ENABLE_RUN_SCRIPT"),
+        auth_fail_per_min=as_int("MCP_AUTH_FAIL_PER_MIN", 30),
         replica_host=get("MYSQL_REPLICA_HOST"),
         replica_port=as_int("MYSQL_REPLICA_PORT", 0),
         replica_user=get("MYSQL_REPLICA_USER"),
@@ -139,6 +181,15 @@ def write_config(cfg: Config, path: Path | None = None, force: bool = False) -> 
         f"MYSQL_SLOW_QUERY_MS={cfg.slow_query_ms}",
         f"TUNNEL_ENABLED={1 if cfg.tunnel_enabled else 0}",
         f"MYSQL_POOL_SIZE={cfg.pool_size}",
+        f"MYSQL_POOL_MAX={cfg.pool_max}",
+        f"MYSQL_POOL_IDLE_S={cfg.pool_idle_s:g}",
+        f"MYSQL_POOL_MAX_PER_KEY={cfg.pool_max_per_key}",
+        f"MYSQL_POOL_WAIT_S={cfg.pool_wait_s:g}",
+        f"MYSQL_MAX_ROWS={cfg.max_rows}",
+        "MCP_ENABLE_RUN_SCRIPT=" + (
+            "" if cfg.enable_run_script is None else ("1" if cfg.enable_run_script else "0")
+        ),
+        f"MCP_AUTH_FAIL_PER_MIN={cfg.auth_fail_per_min}",
         f"MYSQL_REPLICA_HOST={cfg.replica_host}",
         f"MYSQL_REPLICA_PORT={cfg.replica_port}",
         f"MYSQL_REPLICA_USER={cfg.replica_user}",

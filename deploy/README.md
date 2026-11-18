@@ -55,6 +55,15 @@ Usuario de lectura del MCP: hoy el servicio usa **`direccion`** (el de Maruan,
 9-oct-2026): `SELECT`/`SHOW VIEW` en `back` y `oo`, **máx. 3 conexiones y 5 min
 por consulta** → `MYSQL_POOL_SIZE=2`.
 
+> **Multiusuario (17-nov-2026):** compartir `direccion` entre el MCP y las personas
+> garantiza el ERROR 1203: el pool retiene el cupo aunque nadie consulte. El servicio
+> debe usar `back_readonly` (cuenta propia: `SELECT` + `REPLICATION CLIENT`,
+> `MAX_USER_CONNECTIONS=40`) y el pool con TTL de `deploy/mcp.env.example`:
+> `MYSQL_POOL_SIZE=0`, `MYSQL_POOL_MAX=4` (por ejecutor: ×2 con réplica = 8),
+> `MYSQL_POOL_IDLE_S=60`, `MYSQL_POOL_MAX_PER_KEY=2`. Diseño, verificación y
+> pendientes en
+> [`../docs/SDD-MULTIUSUARIO.md`](../docs/SDD-MULTIUSUARIO.md).
+
 Endurecimiento opcional (`back_readonly`, cuenta propia del servicio). **Se crea en
 el PRIMARIO**, no en la réplica: con `super_read_only` el `CREATE USER` local
 falla con `ERROR 1290` (probado el 30-oct-2026). Llega al standby por replicación

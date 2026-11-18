@@ -162,8 +162,27 @@ def build_mcp(cfg, executor, audit, *, remote: bool = False) -> FastMCP:
     # run_script para colarse a facturas_venta aunque esa función exista en
     # el proceso — correspondencia exacta con lo que esa key puede llamar
     # directamente por tools/call.
-    for fn in build_run_script_tools(audit, dict(registradas)):
-        reg(fn)
+    #
+    # SEGURIDAD: run_script ejecuta Python enviado por el cliente con `exec`.
+    # Los builtins recortados evitan errores de un script mal escrito, NO son un
+    # sandbox (vía `__class__.__subclasses__()` se llega al grafo de objetos y a
+    # `os`). En stdio el único cliente es el usuario local; en HTTP el código
+    # llega por la red, así que por defecto NO se registra (fail-closed).
+    # `MCP_ENABLE_RUN_SCRIPT=1` lo reactiva de forma explícita y consciente.
+    habilitado_script = (
+        cfg.enable_run_script
+        if getattr(cfg, "enable_run_script", None) is not None
+        else (not remote)
+    )
+    if habilitado_script:
+        for fn in build_run_script_tools(audit, dict(registradas)):
+            reg(fn)
+    elif remote:
+        print(
+            "mcp-optima-bd: run_script NO registrado en HTTP "
+            "(MCP_ENABLE_RUN_SCRIPT sin definir); el cliente recibe 'Unknown tool'.",
+            file=sys.stderr,
+        )
 
     return mcp
 
@@ -203,7 +222,13 @@ def main(argv: list[str] | None = None) -> int:
     from mcp_bd_readonly.http_app import build_app
 
     store = KeyStore(cfg.api_keys_path)
-    app = build_app(mcp, store, router=executor, rate_limit_per_min=cfg.rate_limit_per_min)
+    app = build_app(
+        mcp,
+        store,
+        router=executor,
+        rate_limit_per_min=cfg.rate_limit_per_min,
+        auth_fail_per_min=getattr(cfg, "auth_fail_per_min", 30),
+    )
     uvicorn.run(
         app,
         host=cfg.http_host,

@@ -31,6 +31,32 @@ mcp-optima-bd --transport http          # 127.0.0.1:8443, endpoint /mcp con Bear
 
 El modo stdio sigue siendo el **default** y no cambia el flujo local.
 
+## Seguridad y multiusuario
+
+Diseñado para que **varias personas usen el mismo endpoint a la vez** sin que una se
+quede sin conexiones. Diseño completo, decisiones y pendientes en
+[`docs/SDD-MULTIUSUARIO.md`](docs/SDD-MULTIUSUARIO.md).
+
+- **Conexiones con TTL y cupo**: `MYSQL_POOL_MAX` (tope de sesiones vivas **por
+  ejecutor**: con réplica configurada hay dos, primario y réplica, así que el total es
+  2×), `MYSQL_POOL_IDLE_S` (cierre por inactividad) y `MYSQL_POOL_MAX_PER_KEY` (cupo por
+  API key). El pool clásico (`MYSQL_POOL_SIZE`) sigue existiendo y es el modo stdio.
+  Sin TTL, las sesiones se retienen hasta el `wait_timeout` de MySQL y el MCP se queda
+  con el cupo del usuario (ERROR 1203 para el resto).
+- **`run_script` fail-closed en HTTP**: ejecuta Python enviado por el cliente con `exec`;
+  los builtins recortados no son un sandbox (`__subclasses__()` llega a `os`). Sin
+  `MCP_ENABLE_RUN_SCRIPT` definida, la tool **no** se registra en HTTP.
+- **Fallos de autenticación** limitados por cliente (peer + `keyid`; detrás del proxy
+  todos los peers son loopback, así que limitar solo por IP bloqueaba a todos) —
+  `MCP_AUTH_FAIL_PER_MIN`, 429 — y registrados en el journal con el `keyid`, nunca con
+  el secreto.
+- **`max_execution_time`** se aplica también a las conexiones del pool (antes solo a las
+  conexiones sueltas, que es la ruta que no usa el servicio).
+- **Topes de memoria**: `MYSQL_MAX_ROWS` (50.000 por defecto, 10.000 recomendado en
+  HTTP) y Excel con `validate=True`, tope antes de decodificar y 150 MB de expansión.
+
+Valores recomendados para el servicio: [`deploy/mcp.env.example`](deploy/mcp.env.example).
+
 ## Requisitos
 
 - Python 3.10+ (venv en `.venv`)

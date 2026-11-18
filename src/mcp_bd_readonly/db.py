@@ -1,5 +1,4 @@
 import json
-import queue
 import re
 import sys
 import threading
@@ -8,6 +7,7 @@ from pathlib import Path
 
 import pymysql
 
+from mcp_bd_readonly.request_ctx import get_api_key
 from mcp_bd_readonly.secure_log import open_append_private
 from mcp_bd_readonly.security import enforce_read_only, LEADING_COMMENTS
 from mcp_bd_readonly.tunnel import TunnelManager
@@ -43,22 +43,26 @@ def _limit_clause(stmt: str) -> tuple[bool, int | None]:
     return True, (int(raw) if raw.isdigit() else None)
 
 
-def _acotar(stmt: str, sql: str, limit) -> str:
+def _acotar(stmt: str, sql: str, limit, max_rows: int = MAX_ROWS) -> str:
     """Acota la query en SQL antes de ejecutarla.
 
-    - LIMIT explícito por encima de MAX_ROWS: error, no se ejecuta.
+    - LIMIT explícito por encima de `max_rows`: error, no se ejecuta.
     - LIMIT explícito razonable (o con placeholder): se respeta tal cual.
     - sin LIMIT y limit=N: se añade LIMIT N.
-    - sin LIMIT y limit=None ("todas"): se añade LIMIT MAX_ROWS+1 para detectar
+    - sin LIMIT y limit=None ("todas"): se añade LIMIT max_rows+1 para detectar
       el desbordamiento sin materializar la tabla completa.
+
+    `max_rows` es configurable (`MYSQL_MAX_ROWS`): en el servicio HTTP se baja
+    del default porque materializar 50.000 filas anchas puede agotar los 512 MB
+    del unit de systemd y tumbar el proceso para TODOS los usuarios.
     """
     if not _single_select(sql):
         return sql
     has_limit, declared = _limit_clause(stmt)
     if has_limit:
-        if declared is not None and declared > MAX_ROWS:
+        if declared is not None and declared > max_rows:
             raise ValueError(
-                f"run: la query pide {declared} filas y el máximo es {MAX_ROWS}. "
+                f"run: la query pide {declared} filas y el máximo es {max_rows}. "
                 "Agrega (GROUP BY), filtra o baja el LIMIT; para contar usa COUNT(*)."
             )
         return sql
@@ -68,7 +72,7 @@ def _acotar(stmt: str, sql: str, limit) -> str:
     if limit:
         return f"{cuerpo}\nLIMIT {int(limit)}"
     if limit is None:
-        return f"{cuerpo}\nLIMIT {MAX_ROWS + 1}"
+        return f"{cuerpo}\nLIMIT {max_rows + 1}"
     return sql
 
 
@@ -117,59 +121,246 @@ class PoolExhausted(RuntimeError):
 class ConnectionPool:
     """Pool acotado y thread-safe sobre conexiones pymysql.
 
-    El tope es deliberado: MySQL comparte `max_connections` con Laravel y sus
-    workers, así que el MCP nunca debe poder agotarlo por su cuenta.
+    Tres garantías, todas deliberadas porque MySQL comparte `max_connections`
+    con Laravel y sus workers:
+
+    - `size`: tope de sesiones **vivas** (en uso + ociosas). Nunca se abre una
+      más: si no hay hueco se desaloja la ociosa más vieja y, si no hay, se
+      espera hasta `timeout` y se falla con `PoolExhausted`.
+    - `idle_s > 0`: cierre por inactividad. Sin esto una sesión queda aparcada
+      hasta el `wait_timeout` de MySQL (8 h por defecto) y el MCP se queda con
+      el cupo del usuario MySQL aunque nadie consulte. Ese fue el bug real que
+      dejó a un humano sin conexiones (error 1203).
+    - `per_key`: cupo por API key, para que una persona con queries lentas no
+      deje sin conexión a las demás.
+
+    Con `idle_s=0` y `per_key=0` se comporta como el pool clásico (reutiliza y
+    no expira), que es lo que usa el modo stdio.
     """
 
-    def __init__(self, factory, size: int, timeout: float = 10.0):
+    def __init__(self, factory, size: int, timeout: float = 10.0,
+                 idle_s: float = 0.0, per_key: int = 0):
         if size < 1:
             raise ValueError("ConnectionPool: size debe ser >= 1")
         self._factory = factory
         self._size = size
-        self._timeout = timeout
-        self._free: queue.LifoQueue = queue.LifoQueue(maxsize=size)
-        self._slots = threading.BoundedSemaphore(size)
+        self._timeout = float(timeout)
+        self._idle_s = max(0.0, float(idle_s or 0.0))
+        self._per_key = max(0, int(per_key or 0))
+        self._lock = threading.Lock()
+        self._idle: dict[str, list[tuple[float, object]]] = {}
+        self._in_use: dict[str, int] = {}
+        self._live = 0
+        self._closed = False
+        self._sweeper: threading.Thread | None = None
+        if self._idle_s > 0:
+            self._start_sweeper()
 
-    def acquire(self):
-        if not self._slots.acquire(timeout=self._timeout):
-            raise PoolExhausted(
-                f"pool de conexiones saturado ({self._size}) tras {self._timeout:.0f}s. "
-                "Reintenta en unos segundos o reduce la concurrencia."
-            )
-        try:
-            return self._free.get_nowait()
-        except queue.Empty:
-            try:
-                return self._factory()
-            except Exception:
-                self._slots.release()
-                raise
+    # ------------------------------------------------------------- ciclo
+    def acquire(self, key: str = ""):
+        key = key or ""
+        deadline = time.monotonic() + self._timeout
+        while True:
+            conn, caducadas = self._take(key)
+            for vieja in caducadas:
+                self._discard(vieja)
+            if conn is not None:
+                if self._ping_ok(conn):
+                    return conn
+                # `_take` ya la contó como en uso para esta clave: hay que
+                # devolver también ese contador o el cupo por clave queda
+                # gastado para siempre.
+                self._discard(conn, key)
+                continue
+            if self._reserve(key):
+                try:
+                    return self._factory()
+                except Exception:
+                    self._free_slot(key)
+                    raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise PoolExhausted(self._agotado(key))
+            # Sondeo corto en vez de Condition: los huecos se liberan desde
+            # hilos de anyio y un wait/notify mal emparejado dejaría clientes
+            # esperando 10 s sin motivo.
+            time.sleep(min(0.05, remaining))
 
-    def release(self, conn) -> None:
-        try:
-            # Descarta conexiones muertas o cortadas por wait_timeout de MySQL.
-            if getattr(conn, "open", True) is False:
-                raise pymysql.err.OperationalError(2013, "conexión perdida")
-            conn.ping(reconnect=False)
-        except Exception:
-            _close_quietly(conn)
-            self._slots.release()
-            return
-        try:
-            self._free.put_nowait(conn)
-        except queue.Full:
-            _close_quietly(conn)
-        finally:
-            self._slots.release()
+    def release(self, conn, key: str = "") -> None:
+        key = key or ""
+        # Descarta conexiones muertas o cortadas por wait_timeout de MySQL.
+        vivo = self._ping_ok(conn)
+        guardar = False
+        with self._lock:
+            self._in_use[key] = max(0, self._in_use.get(key, 0) - 1)
+            if not self._in_use[key]:
+                self._in_use.pop(key, None)
+            if vivo and not self._closed:
+                ociosas = self._idle.setdefault(key, [])
+                if self._per_key == 0 or len(ociosas) < self._per_key:
+                    ociosas.append((time.monotonic(), conn))
+                    guardar = True
+        if not guardar:
+            self._discard(conn)
+
+    def sweep(self, now: float | None = None) -> int:
+        """Cierra las conexiones ociosas más viejas que `idle_s`. Devuelve cuántas."""
+        if self._idle_s <= 0:
+            return 0
+        ahora = time.monotonic() if now is None else now
+        caducadas: list = []
+        with self._lock:
+            for key in list(self._idle):
+                vivas = []
+                for ts, conn in self._idle[key]:
+                    if ahora - ts > self._idle_s:
+                        caducadas.append(conn)
+                    else:
+                        vivas.append((ts, conn))
+                if vivas:
+                    self._idle[key] = vivas
+                else:
+                    self._idle.pop(key, None)
+        for conn in caducadas:
+            self._discard(conn)
+        return len(caducadas)
+
+    def stats(self) -> dict:
+        """Estado del pool para observabilidad (sin datos de negocio)."""
+        with self._lock:
+            ociosas = {k: len(v) for k, v in self._idle.items() if v}
+            en_uso = {k: n for k, n in self._in_use.items() if n > 0}
+            return {
+                "tope": self._size,
+                "vivas": self._live,
+                "en_uso": sum(en_uso.values()),
+                "ociosas": sum(ociosas.values()),
+                "idle_s": self._idle_s,
+                "tope_por_clave": self._per_key,
+                "por_clave": {
+                    k: {"en_uso": en_uso.get(k, 0), "ociosas": ociosas.get(k, 0)}
+                    for k in set(en_uso) | set(ociosas)
+                },
+            }
 
     def close_all(self) -> None:
-        while True:
-            try:
-                _close_quietly(self._free.get_nowait())
-            except queue.Empty:
-                return
-            except Exception:
-                return
+        self._closed = True
+        caducadas: list = []
+        with self._lock:
+            for items in self._idle.values():
+                caducadas.extend(conn for _, conn in items)
+            self._idle.clear()
+        for conn in caducadas:
+            self._discard(conn)
+
+    # ------------------------------------------------------------ interno
+    def _start_sweeper(self) -> None:
+        # Barrido fino: como mucho 5 s, para que el TTL no se estire. Con
+        # idle_s=60 una sesión ociosa vive 60-65 s, no 75 (antes el tope del
+        # intervalo era 15 s). El coste es un lock + recorrido cada 5 s.
+        intervalo = max(1.0, min(5.0, self._idle_s / 2))
+
+        def _loop() -> None:
+            while not self._closed:
+                time.sleep(intervalo)
+                try:
+                    self.sweep()
+                except Exception as exc:  # noqa: BLE001 — nunca tumbar el servicio
+                    _warn(f"barrido de conexiones ociosas falló: {exc}")
+
+        self._sweeper = threading.Thread(target=_loop, name="mcp-pool-sweeper", daemon=True)
+        self._sweeper.start()
+
+    def _take(self, key: str):
+        """Saca la conexión ociosa más reciente de esa clave (LIFO)."""
+        caducadas: list = []
+        with self._lock:
+            items = self._idle.get(key)
+            while items:
+                ts, conn = items.pop()
+                if self._idle_s > 0 and time.monotonic() - ts > self._idle_s:
+                    caducadas.append(conn)
+                    continue
+                self._in_use[key] = self._in_use.get(key, 0) + 1
+                if not items:
+                    self._idle.pop(key, None)
+                return conn, caducadas
+            self._idle.pop(key, None)
+        return None, caducadas
+
+    def _reserve(self, key: str) -> bool:
+        """Reserva un hueco para abrir una conexión nueva (o desaloja una ociosa)."""
+        victima = None
+        with self._lock:
+            if self._per_key:
+                usadas = self._in_use.get(key, 0) + len(self._idle.get(key, ()))
+                if usadas >= self._per_key:
+                    return False
+            if self._live >= self._size:
+                victima = self._oldest_idle()
+                if victima is None:
+                    return False
+                self._live -= 1
+            self._live += 1
+            self._in_use[key] = self._in_use.get(key, 0) + 1
+        if victima is not None:
+            _close_quietly(victima)
+        return True
+
+    def _oldest_idle(self):
+        """Saca la conexión ociosa más vieja de todo el pool. Debe llamarse con lock."""
+        mejor_key, mejor_ts, mejor_i = None, None, -1
+        for key, items in self._idle.items():
+            for i, (ts, _conn) in enumerate(items):
+                if mejor_ts is None or ts < mejor_ts:
+                    mejor_key, mejor_ts, mejor_i = key, ts, i
+        if mejor_key is None:
+            return None
+        items = self._idle[mejor_key]
+        _ts, conn = items.pop(mejor_i)
+        if not items:
+            self._idle.pop(mejor_key, None)
+        return conn
+
+    def _discard(self, conn, key: str | None = None) -> None:
+        """Cierra y descuenta. `key` solo se pasa si la conexión venía contada
+        como en uso de esa clave (`_take`): si no, se descontaría dos veces."""
+        _close_quietly(conn)
+        with self._lock:
+            self._live = max(0, self._live - 1)
+            if key is not None:
+                self._in_use[key] = max(0, self._in_use.get(key, 0) - 1)
+                if not self._in_use[key]:
+                    self._in_use.pop(key, None)
+
+    def _free_slot(self, key: str) -> None:
+        with self._lock:
+            self._in_use[key] = max(0, self._in_use.get(key, 0) - 1)
+            self._live = max(0, self._live - 1)
+
+    def _ping_ok(self, conn) -> bool:
+        try:
+            if getattr(conn, "open", True) is False:
+                return False
+            conn.ping(reconnect=False)
+            return True
+        except Exception:
+            return False
+
+    def _agotado(self, key: str) -> str:
+        if self._per_key:
+            with self._lock:
+                usadas = self._in_use.get(key, 0) + len(self._idle.get(key, ()))
+            if usadas >= self._per_key:
+                return (
+                    f"cupo por API key alcanzado ({self._per_key} conexiones) tras "
+                    f"{self._timeout:.0f}s. Espera a que terminen tus consultas "
+                    "anteriores y reintenta."
+                )
+        return (
+            f"pool de conexiones saturado ({self._size}) tras {self._timeout:.0f}s. "
+            "Reintenta en unos segundos o reduce la concurrencia."
+        )
 
 
 def _close_quietly(conn) -> None:
@@ -185,8 +376,26 @@ def _close_quietly(conn) -> None:
 class QueryExecutor:
     def __init__(self, cfg):
         self.cfg = cfg
+        # Dos modos de pool, ambos acotados:
+        #  - `pool_size` (clásico): tamaño fijo, sin expiración por inactividad.
+        #  - `pool_max` (multiusuario): tope global + `pool_idle_s` de TTL y
+        #    `pool_max_per_key` por API key.
+        # La factory es `_connect` (no `_open`) para que TODA conexión pase por
+        # `_configure()`: antes las del pool se quedaban sin `max_execution_time`
+        # y una SELECT lenta no se abortaba en el servidor.
         size = int(getattr(cfg, "pool_size", 0) or 0)
-        self._pool = ConnectionPool(self._open, size) if size > 0 else None
+        tope = int(getattr(cfg, "pool_max", 0) or 0)
+        capacidad = tope or size
+        self.max_rows = int(getattr(cfg, "max_rows", 0) or MAX_ROWS)
+        self._pool = None
+        if capacidad > 0:
+            self._pool = ConnectionPool(
+                self._connect,
+                capacidad,
+                timeout=float(getattr(cfg, "pool_wait_s", 10.0) or 10.0),
+                idle_s=float(getattr(cfg, "pool_idle_s", 0) or 0),
+                per_key=int(getattr(cfg, "pool_max_per_key", 0) or 0),
+            )
 
     def _open(self):
         return pymysql.connect(
@@ -255,14 +464,24 @@ class QueryExecutor:
         self._configure(c)
         return c
 
+    @staticmethod
+    def _pool_key() -> str:
+        """Clave con la que se reparte el pool: la API key de la request HTTP.
+
+        En stdio (sin middleware) vale "" y el pool se comporta como el clásico.
+        Se lee del contextvar en cada llamada, no se pasa por parámetro, para no
+        cambiar la firma de `_conn`/`_release` que ya usan los dobles de test.
+        """
+        return get_api_key() or ""
+
     def _conn(self):
         if self._pool is not None:
-            return self._pool.acquire()
+            return self._pool.acquire(self._pool_key())
         return self._connect()
 
     def _release(self, conn) -> None:
         if self._pool is not None:
-            self._pool.release(conn)
+            self._pool.release(conn, self._pool_key())
             return
         _close_quietly(conn)
 
@@ -271,10 +490,16 @@ class QueryExecutor:
         if self._pool is not None:
             self._pool.close_all()
 
+    def pool_stats(self) -> dict | None:
+        """Estado del pool para `estado_cupos`/diagnóstico. None si no hay pool."""
+        if self._pool is None:
+            return None
+        return self._pool.stats()
+
     def run(self, sql, params=None, limit=100):
         enforce_read_only(sql)
         stmt = _first_stmt(sql)
-        clamped = _acotar(stmt, sql, limit)
+        clamped = _acotar(stmt, sql, limit, self.max_rows)
         rows: list = []
         cols: list = []
         for attempt in (1, 2):
@@ -300,9 +525,9 @@ class QueryExecutor:
             finally:
                 # La conexión vuelve al pool (o se cierra) también si hubo error.
                 self._release(c)
-        if limit is None and len(rows) > MAX_ROWS:
+        if limit is None and len(rows) > self.max_rows:
             raise ValueError(
-                f"run: la query devolvió más de {MAX_ROWS} filas sin límite. "
+                f"run: la query devolvió más de {self.max_rows} filas sin límite. "
                 "Agrega (GROUP BY), filtra o pide un LIMIT; para contar usa COUNT(*)."
             )
         if limit and rows and not clamped.lower().endswith(f"limit {int(limit)}"):

@@ -18,6 +18,9 @@ from mcp_bd_readonly import file_guard
 log = logging.getLogger("mcp_bd_readonly.excel")
 
 MAX_FILE_MB = 25
+# Tope de tamaño DESCOMPRIMIDO: una bomba zip de 25MB puede expandirse a GBs y
+# el unit solo tiene 512MB (OOM => systemd reinicia el servicio para todos).
+MAX_UNZIP_MB = 150
 MAX_TOTAL_CELLS = 250_000
 MAX_SHEET_CELLS = 60_000
 MAX_CELL_TEXT = 120
@@ -127,8 +130,19 @@ class _Source:
 def _load_source(xlsx_path: str | None, contenido_b64: str | None) -> _Source:
     """Obtiene el XLSX como bytes. Nunca escribe en disco."""
     if contenido_b64:
+        # Tope ANTES de decodificar y `validate=True`: sin esto, un payload
+        # gigante se decodifica entero en memoria y solo después se comprueba
+        # el tamaño del fichero (el unit tiene MemoryMax=512M y una bomba de
+        # base64 tumbaba el servicio para todos los usuarios).
+        limpio = "".join(contenido_b64.split())
+        max_b64 = int(MAX_FILE_MB * 1024 * 1024 * 4 / 3) + 8
+        if len(limpio) > max_b64:
+            raise ExcelSafetyError(
+                f"contenido_b64 excede el tamaño de un XLSX de {MAX_FILE_MB}MB "
+                f"({len(limpio) / 1e6:.1f}M caracteres) antes de decodificar"
+            )
         try:
-            data = base64.b64decode(contenido_b64, validate=False)
+            data = base64.b64decode(limpio, validate=True)
         except (binascii.Error, ValueError) as e:
             raise ExcelSafetyError(f"contenido_b64 no es base64 válido: {e}")
         if not data:
@@ -163,8 +177,10 @@ def _safety_checks(src) -> None:
             total = sum(i.file_size for i in z.infolist())
             if bad:
                 raise ExcelSafetyError(f"XLSX corrupto (zip): {bad}")
-            if total > 400 * 1024 * 1024:
-                raise ExcelSafetyError(f"Descomprimir excede 400MB ({total/1e6:.0f}MB)")
+            if total > MAX_UNZIP_MB * 1024 * 1024:
+                raise ExcelSafetyError(
+                    f"Descomprimir excede {MAX_UNZIP_MB}MB ({total/1e6:.0f}MB)"
+                )
     except zipfile.BadZipFile:
         raise ExcelSafetyError("No es un XLSX válido (no es ZIP)")
 
