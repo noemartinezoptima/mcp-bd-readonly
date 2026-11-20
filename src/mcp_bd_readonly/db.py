@@ -421,7 +421,7 @@ class QueryExecutor:
         timeout_ms = int(getattr(self.cfg, "query_timeout_ms", None) or 15000)
         try:
             with c.cursor() as cur:
-                cur.execute(f"SET SESSION max_execution_time = {timeout_ms}")
+                cur.execute("SET SESSION max_execution_time = %s", (timeout_ms,))
         except pymysql.err.OperationalError as exc:
             # No fatal (MySQL < 5.7.8), pero debe quedar rastro: significa que
             # las queries lentas no se están abortando en el servidor.

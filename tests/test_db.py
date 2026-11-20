@@ -459,15 +459,15 @@ def test_configure_sets_max_execution_time(monkeypatch):
         def __exit__(self, *a):
             return False
 
-        def execute(self, sql):
-            seen.append(sql)
+        def execute(self, sql, params=None):
+            seen.append((sql, params))
 
     class Conn:
         def cursor(self):
             return Cur()
 
     ex._configure(Conn())
-    assert seen == ["SET SESSION max_execution_time = 15000"]
+    assert seen == [("SET SESSION max_execution_time = %s", (15000,))]
 
 
 def test_note_slow_writes_when_slow(tmp_path):

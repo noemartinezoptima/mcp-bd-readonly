@@ -29,7 +29,8 @@ def describe_tablas_clave(ex: QueryExecutor, tablas=None) -> dict:
         if cached and now - cached[0] < CACHE_TTL:
             out[tabla] = cached[1]
             continue
-        _, rows = ex.run(f"DESCRIBE `{tabla}`", limit=None)
+        safe = tabla.replace("`", "``")
+        _, rows = ex.run(f"DESCRIBE `{safe}`", limit=None)
         entry = {"columnas": rows, "nota": NOTAS.get(tabla, "")}
         _cache[tabla] = (now, entry)
         out[tabla] = entry
