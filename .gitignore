@@ -16,3 +16,6 @@ CLARIFICACIONES-DPO.xlsx
 # Artefactos del workspace: el propio .freebuff/.gitignore pide no commitearlos
 .freebuff/
 .cloud-attachments/
+
+# Quickstart local con token de producción (NUNCA commitear el token real)
+MCP-BACK-QUICKSTART.md
